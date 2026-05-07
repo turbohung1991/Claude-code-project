@@ -391,6 +391,116 @@ def _save_analysis(filename, video_data, analysis):
 
 
 # ═══════════════════════════════════════════════════════════════
+# Export API (PDF / Image via Playwright)
+# ═══════════════════════════════════════════════════════════════
+
+EXPORT_CSS = """
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+max-width:800px;margin:0 auto;padding:40px;color:#e0e0e0;background:#1a1a24;line-height:1.8}
+h1{color:#6c5ce7}h2{color:#ff6b9d;border-bottom:1px solid #2a2a3a;padding-bottom:4px}h3{color:#4ecdc4}
+strong{color:#fff}li{margin:4px 0}p{margin:6px 0}
+"""
+
+
+@app.route("/api/export/pdf", methods=["POST"])
+def export_pdf():
+    raw = request.json.get("content", "")
+    title = request.json.get("title", "分析报告")
+    if not raw.strip():
+        return jsonify({"error": "内容为空"}), 400
+
+    # Convert markdown to basic HTML
+    body = _simple_md_to_html(raw)
+    html = f"<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{title}</title><style>{EXPORT_CSS}</style></head><body>{body}</body></html>"
+
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
+            page = browser.new_page()
+            page.set_content(html, wait_until="networkidle", timeout=15000)
+            pdf_bytes = page.pdf(format="A4", print_background=True, margin={"top": "20mm", "bottom": "20mm", "left": "15mm", "right": "15mm"})
+            browser.close()
+
+        import io
+        return send_file(
+            io.BytesIO(pdf_bytes), mimetype="application/pdf",
+            as_attachment=True, download_name=f"{title}.pdf"
+        )
+    except Exception as e:
+        return jsonify({"error": f"PDF 生成失败: {str(e)}"}), 500
+
+
+@app.route("/api/export/image", methods=["POST"])
+def export_image():
+    raw = request.json.get("content", "")
+    title = request.json.get("title", "分析报告")
+    if not raw.strip():
+        return jsonify({"error": "内容为空"}), 400
+
+    body = _simple_md_to_html(raw)
+    html = f"<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{title}</title><style>{EXPORT_CSS}</style></head><body>{body}</body></html>"
+
+    try:
+        from playwright.sync_api import sync_playwright
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
+            page = browser.new_page(viewport={"width": 800, "height": 600})
+            page.set_content(html, wait_until="networkidle", timeout=15000)
+            # Get full page height
+            height = page.evaluate("document.body.scrollHeight")
+            page.set_viewport_size({"width": 800, "height": height + 40})
+            png_bytes = page.screenshot(full_page=True, type="png")
+            browser.close()
+
+        import io
+        return send_file(
+            io.BytesIO(png_bytes), mimetype="image/png",
+            as_attachment=True, download_name=f"{title}.png"
+        )
+    except Exception as e:
+        return jsonify({"error": f"图片生成失败: {str(e)}"}), 500
+
+
+def _simple_md_to_html(text):
+    """Basic markdown → HTML conversion."""
+    import re
+    lines = text.strip().split("\n")
+    out = []
+    in_list = False
+    for line in lines:
+        s = line.strip()
+        if not s:
+            if in_list:
+                out.append("</ul>")
+                in_list = False
+            continue
+        if s.startswith("### "):
+            if in_list: out.append("</ul>"); in_list = False
+            out.append(f"<h3>{s[4:]}</h3>")
+        elif s.startswith("## "):
+            if in_list: out.append("</ul>"); in_list = False
+            out.append(f"<h2>{s[3:]}</h2>")
+        elif s.startswith("# "):
+            if in_list: out.append("</ul>"); in_list = False
+            out.append(f"<h1>{s[2:]}</h1>")
+        elif re.match(r"^[-*]\s", s):
+            if not in_list: out.append("<ul>"); in_list = True
+            txt = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s[2:])
+            out.append(f"<li>{txt}</li>")
+        elif re.match(r"^\d+[\.\)]\s", s):
+            if in_list: out.append("</ul>"); in_list = False
+            txt = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", re.sub(r"^\d+[\.\)]\s+", "", s))
+            out.append(f"<p>{txt}</p>")
+        else:
+            if in_list: out.append("</ul>"); in_list = False
+            txt = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", s)
+            out.append(f"<p>{txt}</p>")
+    if in_list: out.append("</ul>")
+    return "\n".join(out)
+
+
+# ═══════════════════════════════════════════════════════════════
 # Format Conversion API
 # ═══════════════════════════════════════════════════════════════
 

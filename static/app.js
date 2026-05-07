@@ -327,37 +327,40 @@ function showAIReady(data) {
     aiSection.scrollIntoView({ behavior: 'smooth' });
 }
 
-function exportAnalysisPDF() {
+async function exportAnalysisPDF() {
     const raw = $('#aiContent').dataset.raw || '';
     const title = (videoData?.info?.desc || '分析报告').substring(0, 30);
-    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + title + '</title>' +
-        '<style>body{font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:40px;color:#333;line-height:1.8}' +
-        'h1{color:#6c5ce7}h2{color:#ff6b9d;border-bottom:1px solid #eee;padding-bottom:4px}h3{color:#4ecdc4}' +
-        'strong{color:#333}li{margin:4px 0}@media print{body{padding:20px}}</style></head><body>' +
-        simpleMarkdown(raw) + '</body></html>';
-    const blob = new Blob([html], {type: 'text/html'});
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url, '_blank');
-    if (!w) {
-        // Popup blocked — download as file instead
+    try {
+        const resp = await fetch('/api/export/pdf', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({content: raw, title: title}),
+        });
+        if (!resp.ok) { const e = await resp.json(); throw new Error(e.error); }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = title + '.html'; a.click();
-        showToast('报告已下载，用浏览器打开后按 Ctrl+P 打印');
-    } else {
-        w.addEventListener('load', () => { w.print(); });
-    }
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+        a.href = url; a.download = title + '.pdf'; a.click();
+        URL.revokeObjectURL(url);
+    } catch(e) { showToast('PDF导出失败: ' + e.message); }
 }
 
-function exportAnalysisImage() {
+async function exportAnalysisImage() {
     const raw = $('#aiContent').dataset.raw || '';
     const title = (videoData?.info?.desc || '分析报告').substring(0, 30);
-    const blob = new Blob([raw], {type: 'text/markdown'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = title + '分析报告.md'; a.click();
-    URL.revokeObjectURL(url);
-    showToast('Markdown 报告已下载');
+    try {
+        const resp = await fetch('/api/export/image', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({content: raw, title: title}),
+        });
+        if (!resp.ok) { const e = await resp.json(); throw new Error(e.error); }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = title + '.png'; a.click();
+        URL.revokeObjectURL(url);
+    } catch(e) { showToast('图片导出失败: ' + e.message); }
 }
 
 function finishProcess() {
@@ -462,8 +465,8 @@ async function viewAnalysis(file) {
                     👤 ${escHTML(data.author || '未知')} · ⏱ ${data.duration || 0}秒 · 🤖 ${data.model || ''} · ${dt}
                 </div>
                 <div style="margin-top:10px;display:flex;gap:8px;">
-                    <button class="btn btn-sm btn-export-html">🖨️ 导出 HTML</button>
-                    <button class="btn btn-sm btn-export-md">🖼️ 导出 MD</button>
+                    <button class="btn btn-sm btn-export-pdf">🖨️ 导出 PDF</button>
+                    <button class="btn btn-sm btn-export-img">🖼️ 导出图片</button>
                 </div>
             </div>
             ${renderAIReport(rawText)}
@@ -477,34 +480,24 @@ async function viewAnalysis(file) {
     }
 }
 
-function exportHistoryRaw(format) {
+async function exportHistoryRaw(format) {
     const raw = $('#analysisDetailContent').dataset.raw || '';
     const title = $('#analysisDetailContent').dataset.title || '分析报告';
-    if (format === 'html') {
-        const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + title + '</title>' +
-            '<style>body{font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:40px;color:#333;line-height:1.8}' +
-            'h1{color:#6c5ce7}h2{color:#ff6b9d;border-bottom:1px solid #eee;padding-bottom:4px}h3{color:#4ecdc4}' +
-            'strong{color:#333}li{margin:4px 0}@media print{body{padding:20px}}</style></head><body>' +
-            simpleMarkdown(raw) + '</body></html>';
-        const blob = new Blob([html], {type: 'text/html'});
-        const url = URL.createObjectURL(blob);
-        const w = window.open(url, '_blank');
-        if (!w) {
-            const a = document.createElement('a');
-            a.href = url; a.download = title + '.html'; a.click();
-            showToast('报告已下载，用浏览器打开后按 Ctrl+P 打印');
-        } else {
-            w.addEventListener('load', function() { w.print(); });
-        }
-        setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
-    } else {
-        const blob = new Blob([raw], {type: 'text/markdown'});
+    const endpoint = format === 'pdf' ? '/api/export/pdf' : '/api/export/image';
+    const ext = format === 'pdf' ? '.pdf' : '.png';
+    try {
+        const resp = await fetch(endpoint, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({content: raw, title: title}),
+        });
+        if (!resp.ok) { const e = await resp.json(); throw new Error(e.error); }
+        const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = title + '分析报告.md'; a.click();
+        a.href = url; a.download = title + ext; a.click();
         URL.revokeObjectURL(url);
-        showToast('Markdown 报告已下载');
-    }
+    } catch(e) { showToast('导出失败: ' + e.message); }
 }
 
 function closeHistory() {
@@ -646,8 +639,8 @@ function escHTML(s) {
 // ==================== 弹窗外部点击关闭 & 导出按钮 ====================
 historyModal.addEventListener('click', (e) => {
     if (e.target === historyModal) closeHistory();
-    if (e.target.classList.contains('btn-export-html')) exportHistoryRaw('html');
-    if (e.target.classList.contains('btn-export-md')) exportHistoryRaw('md');
+    if (e.target.classList.contains('btn-export-pdf')) exportHistoryRaw('pdf');
+    if (e.target.classList.contains('btn-export-img')) exportHistoryRaw('img');
 });
 
 // ==================== 初始化 ====================
