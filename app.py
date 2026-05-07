@@ -482,5 +482,21 @@ with gr.Blocks(
     dy_subtitle_text.change(fn=lambda s: s, inputs=[dy_subtitle_text], outputs=[ca_text])
 
 
+def _ensure_playwright_browsers():
+    """Ensure Playwright Chromium is installed (idempotent — fast if cached)."""
+    import subprocess, sys, os
+    cache = os.path.expanduser("~/.cache/ms-playwright")
+    if os.path.isdir(cache) and os.listdir(cache):
+        print("[setup] Playwright browsers already installed.")
+        return
+    print("[setup] Installing Playwright Chromium (one-time, ~300MB)...")
+    subprocess.run(
+        [sys.executable, "-m", "playwright", "install", "--with-deps", "chromium"],
+        check=False, timeout=300,
+    )
+    print("[setup] Playwright ready.")
+
+
 if __name__ == "__main__":
+    _ensure_playwright_browsers()
     app.launch(server_name="0.0.0.0", server_port=7860, share=False)
