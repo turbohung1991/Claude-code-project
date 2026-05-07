@@ -329,7 +329,11 @@ function showAIReady(data) {
 
 async function doExport(format) {
     const el = $('#aiContent');
-    const html = el.innerHTML;
+    let html = el ? el.innerHTML : '';
+    // Fallback: render raw markdown if DOM is empty
+    if ((!html || html.length < 50) && el && el.dataset.raw) {
+        html = renderAIReport(el.dataset.raw) || simpleMarkdown(el.dataset.raw);
+    }
     if (!html || html.length < 50) { showToast('没有可导出的分析内容'); return; }
     const title = (videoData?.info?.desc || '分析报告').substring(0, 30);
     const endpoint = format === 'pdf' ? '/api/export/pdf' : '/api/export/image';
@@ -355,8 +359,14 @@ function exportAnalysisImage() { doExport('img'); }
 
 async function exportHistoryRaw(format) {
     const el = $('#analysisDetailContent');
-    const cards = el.querySelector('.ai-card');
-    const html = cards ? el.innerHTML : el.querySelector('div') ? el.innerHTML : '';
+    let html = '';
+    if (el) {
+        html = el.querySelector('.ai-card') ? el.innerHTML : (el.querySelector('div') ? el.innerHTML : '');
+        // Fallback: render from stored raw markdown
+        if ((!html || html.length < 50) && el.dataset.raw) {
+            html = renderAIReport(el.dataset.raw) || simpleMarkdown(el.dataset.raw);
+        }
+    }
     if (!html || html.length < 50) { showToast('没有可导出的分析内容'); return; }
     const title = el.dataset.title || '分析报告';
     const endpoint = format === 'pdf' ? '/api/export/pdf' : '/api/export/image';
