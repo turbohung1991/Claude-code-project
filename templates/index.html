@@ -3,9 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 智能工具箱</title>
+    <title>🎵 抖音视频下载分析</title>
     <link rel="stylesheet" href="/static/style.css">
-    <link rel="icon" href="data:,">
 </head>
 <body>
     <div class="container">
@@ -25,12 +24,12 @@
         <section class="input-section">
             <div class="input-group">
                 <input type="text" id="urlInput" placeholder="粘贴抖音链接: v.douyin.com/xxx 或 douyin.com/video/xxx" autocomplete="off">
-                <button id="btnParse" class="btn btn-primary">解析</button>
+                <button id="btnParse" class="btn btn-primary">🔍 解析</button>
             </div>
             <div class="quick-actions">
-                <button id="btnPaste" class="btn btn-sm">粘贴</button>
-                <button id="btnClear" class="btn btn-sm">清除</button>
-                <button id="btnHistory" class="btn btn-sm">历史</button>
+                <button id="btnPaste" class="btn btn-sm">📋 粘贴</button>
+                <button id="btnClear" class="btn btn-sm">🗑 清除</button>
+                <button id="btnHistory" class="btn btn-sm">📂 历史下载</button>
             </div>
             <div id="parseError" class="error-msg hidden"></div>
         </section>
@@ -42,13 +41,13 @@
                 <div class="video-meta">
                     <h3 id="videoDesc">-</h3>
                     <div class="meta-row">
-                        <span class="meta-item"><strong id="videoAuthor">-</strong></span>
-                        <span class="meta-item"><strong id="videoDuration">-</strong>秒</span>
+                        <span class="meta-item">👤 <strong id="videoAuthor">-</strong></span>
+                        <span class="meta-item">⏱ <strong id="videoDuration">-</strong>秒</span>
                     </div>
                     <div class="meta-row">
-                        <span class="meta-item"><strong id="videoDigg">-</strong></span>
-                        <span class="meta-item"><strong id="videoComment">-</strong></span>
-                        <span class="meta-item"><strong id="videoShare">-</strong></span>
+                        <span class="meta-item">❤️ <strong id="videoDigg">-</strong></span>
+                        <span class="meta-item">💬 <strong id="videoComment">-</strong></span>
+                        <span class="meta-item">🔄 <strong id="videoShare">-</strong></span>
                     </div>
                     <div id="videoHashtags" class="hashtags"></div>
                 </div>
@@ -56,16 +55,16 @@
 
             <!-- 清晰度选择 -->
             <div id="qualitySection" class="quality-section">
-                <h4>清晰度选择</h4>
+                <h4>🎬 清晰度选择</h4>
                 <div id="qualityOptions" class="quality-options"></div>
             </div>
 
             <!-- 操作按钮 -->
             <div class="action-buttons">
-                <button id="btnDownload" class="btn btn-success">下载视频</button>
+                <button id="btnDownload" class="btn btn-success">📥 下载视频</button>
                 <label class="toggle-label">
                     <input type="checkbox" id="toggleAI" checked>
-                    <span>AI 策略分析</span>
+                    <span>🧠 AI策略分析</span>
                 </label>
             </div>
         </section>
@@ -86,14 +85,14 @@
 
         <!-- 视频播放区 -->
         <section id="videoSection" class="card hidden">
-            <h3>视频预览</h3>
+            <h3>📺 视频预览</h3>
             <video id="videoPlayer" controls style="width:100%; max-height:500px; border-radius:12px; background:#000;"></video>
             <div id="videoInfo" class="video-download-info"></div>
         </section>
 
         <!-- 字幕区 -->
         <section id="subtitleSection" class="card hidden">
-            <h3>字幕</h3>
+            <h3>📝 字幕/文案</h3>
             <div class="subtitle-source" id="subtitleSource"></div>
             <pre id="subtitleContent" class="subtitle-content"></pre>
         </section>
@@ -101,6 +100,11 @@
         <!-- AI分析区 -->
         <section id="aiSection" class="card hidden">
             <h3>
+                <svg width="22" height="22" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:6px;">
+                    <path d="M12 2L14.4 9.2L15.06 11.38L17.23 10.7L19 10L15.5 13.5L13 16L12 20L9 14L5 9L8.5 8.5L12 2Z" fill="#6c5ce7" opacity="0.3"/>
+                    <path d="M12 2L12 20M12 2L9 14M12 2L14.4 9.2M12 20L15.5 13.5M12 20L8.5 8.5" stroke="url(#gemGrad)" stroke-width="1.5" stroke-linecap="round"/>
+                    <defs><linearGradient id="gemGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6c5ce7"/><stop offset="100%" stop-color="#4ecdc4"/></linearGradient></defs>
+                </svg>
                 AI 内容策略分析
             </h3>
             <div id="aiLoading" class="ai-loading hidden">
@@ -109,8 +113,8 @@
             </div>
             <div id="aiContent" class="ai-content markdown-body"></div>
             <div id="aiExportBtns" class="hidden" style="margin-top:16px;padding-top:14px;border-top:1px solid #2a2a3a;display:flex;gap:10px;">
-                <button onclick="exportAnalysisPDF()" class="btn btn-sm" title="打印为PDF">导出 PDF</button>
-                <button onclick="exportAnalysisImage()" class="btn btn-sm" title="导出为图片">导出图片</button>
+                <button onclick="exportAnalysisPDF()" class="btn btn-sm" title="打印为PDF">🖨️ 导出 PDF</button>
+                <button onclick="exportAnalysisImage()" class="btn btn-sm" title="导出为图片">🖼️ 导出图片</button>
             </div>
         </section>
 
@@ -119,14 +123,14 @@
             <div class="modal-content">
                 <div class="modal-header">
                     <div class="modal-tabs">
-                        <button class="tab-btn active" onclick="switchHistoryTab('downloads')">下载记录</button>
-                        <button class="tab-btn" onclick="switchHistoryTab('analyses')">分析报告</button>
+                        <button class="tab-btn active" onclick="switchHistoryTab('downloads')">📥 下载记录</button>
+                        <button class="tab-btn" onclick="switchHistoryTab('analyses')">🧠 分析报告</button>
                     </div>
                     <button class="btn-close" onclick="closeHistory()">✕</button>
                 </div>
                 <div id="historyList" class="history-list"></div>
                 <div id="analysisDetail" class="analysis-detail hidden">
-                    <button class="btn btn-sm" onclick="switchHistoryTab('analyses')" style="margin-bottom:12px;">返回列表</button>
+                    <button class="btn btn-sm" onclick="switchHistoryTab('analyses')" style="margin-bottom:12px;">← 返回列表</button>
                     <div id="analysisDetailContent"></div>
                 </div>
             </div>
