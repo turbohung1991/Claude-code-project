@@ -584,84 +584,124 @@ function simpleMarkdown(text) {
     return html;
 }
 
-// ==================== AI 结构化渲染 (极简阅读风格) ====================
-// Matches reference: dark bg #14101e, gray text #c0b8c4, orange accents #fd8b42
+// ==================== AI 结构化渲染 (增强卡片样式) ====================
+const AI_COLORS = ['#6c5ce7', '#ff6b9d', '#4ecdc4', '#ffa502', '#00d68f', '#45aaf2'];
+const AI_ICONS  = ['🎯', '🔥', '✍️', '👁️', '📊', '🧬'];
+const AI_GRADIENTS = [
+    'rgba(108,92,231,0.12)', 'rgba(255,107,157,0.12)', 'rgba(78,205,196,0.12)',
+    'rgba(255,165,2,0.12)',  'rgba(0,214,143,0.12)',  'rgba(69,170,242,0.12)'
+];
 
 function renderAIReport(rawText) {
     if (!rawText) return '';
-    var html = markdownToMinimal(rawText);
-    return '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-height:65vh;overflow-y:auto;padding-right:4px;scrollbar-width:thin;scrollbar-color:#2a2a3a #14101e;">' + html + '</div>';
+    // Try structured sections first
+    var sections = parseAISections(rawText);
+    if (sections.length >= 2) {
+        return renderCardSections(sections);
+    }
+    // Fallback to rich markdown → HTML (always produces good output)
+    return richMarkdown(rawText);
 }
 
-function markdownToMinimal(md) {
+function renderCardSections(sections) {
+    var html = '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-height:65vh;overflow-y:auto;padding-right:6px;scrollbar-width:thin;scrollbar-color:#2a2a3a #111119;">';
+    sections.forEach(function(sec, i) {
+        var c = AI_COLORS[i % AI_COLORS.length];
+        var grad = AI_GRADIENTS[i % AI_GRADIENTS.length];
+        var icon = AI_ICONS[i % AI_ICONS.length];
+        html += '<div style="background:linear-gradient(135deg,' + grad + ',transparent);border-left:3px solid ' + c + ';border-radius:0 10px 10px 0;padding:16px 18px;margin-bottom:16px;border-top:1px solid #1e1e2e;border-right:1px solid #1e1e2e;border-bottom:1px solid #1e1e2e;">';
+        html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">';
+        html += '<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:' + c + '22;font-size:1rem;">' + icon + '</span>';
+        html += '<span style="font-size:1.05rem;font-weight:700;color:' + c + ';letter-spacing:0.01em;">' + escHTML(sec.title) + '</span>';
+        html += '</div>';
+        html += '<div style="color:#b8b4c4;font-size:0.92rem;line-height:1.85;">' + renderAIBody(sec.body, c) + '</div>';
+        html += '</div>';
+    });
+    html += '</div>';
+    return html;
+}
+
+// Rich markdown fallback — works with any markdown, always produces styled output
+function richMarkdown(md) {
+    if (!md) return '';
     var lines = md.trim().split('\n');
-    var out = [];
-    var inUl = false, inOl = false;
+    var html = [];
+    var inList = false;
+    var colorIdx = 0;
 
     for (var i = 0; i < lines.length; i++) {
         var s = lines[i].trim();
         if (!s) {
-            if (inUl) { out.push('</ul>'); inUl = false; }
-            if (inOl) { out.push('</ol>'); inOl = false; }
-            out.push('<div style="height:10px;"></div>');
+            if (inList) { html.push('</ul>'); inList = false; }
+            html.push('<div style="height:6px;"></div>');
             continue;
         }
-
-        // ## header → clean white heading
+        // H2 → pink header with bottom border
         if (/^##\s/.test(s)) {
-            if (inUl) { out.push('</ul>'); inUl = false; }
-            if (inOl) { out.push('</ol>'); inOl = false; }
-            var h = escHTML(s.replace(/^##\s+/, ''));
-            out.push('<div style="margin:22px 0 10px 0;font-size:1.08rem;font-weight:700;color:#f0ece4;letter-spacing:0.02em;">' + h + '</div>');
+            if (inList) { html.push('</ul>'); inList = false; }
+            var h2 = s.replace(/^##\s+/, '');
+            colorIdx = Math.floor((colorIdx + 1) % AI_COLORS.length);
+            var c = AI_COLORS[colorIdx];
+            html.push('<h2 style="font-size:1.1rem;color:' + c + ';margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid #2a2a3a;">' + escHTML(h2) + '</h2>');
             continue;
         }
-
-        // ### sub-header → dimmer
+        // H3 → cyan sub-header
         if (/^###\s/.test(s)) {
-            if (inUl) { out.push('</ul>'); inUl = false; }
-            if (inOl) { out.push('</ol>'); inOl = false; }
-            var h3 = escHTML(s.replace(/^###\s+/, ''));
-            out.push('<div style="margin:14px 0 6px 0;font-size:0.95rem;font-weight:600;color:#b0a89c;">' + h3 + '</div>');
+            if (inList) { html.push('</ul>'); inList = false; }
+            var h3 = s.replace(/^###\s+/, '');
+            html.push('<h3 style="font-size:0.95rem;color:#4ecdc4;margin:12px 0 6px;">' + escHTML(h3) + '</h3>');
             continue;
         }
-
-        // Unordered list
+        // Bullet list
         if (/^[-*]\s/.test(s)) {
-            if (inOl) { out.push('</ol>'); inOl = false; }
-            if (!inUl) { out.push('<ul style="margin:4px 0;padding-left:18px;list-style:none;">'); inUl = true; }
-            var t = s.replace(/^[-*]\s+/, '');
-            t = highlightText(t);
-            out.push('<li style="margin:3px 0;line-height:1.75;color:#989088;font-size:0.9rem;">— ' + t + '</li>');
+            if (!inList) { html.push('<ul style="margin:4px 0;padding-left:18px;">'); inList = true; }
+            var txt = s.replace(/^[-*]\s+/, '');
+            txt = txt.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#fff;background:rgba(108,92,231,0.2);padding:1px 5px;border-radius:3px;">$1</strong>');
+            html.push('<li style="margin:3px 0;line-height:1.7;color:#b8b4c4;font-size:0.9rem;">' + txt + '</li>');
             continue;
         }
-
-        // Ordered list
+        // Numbered → card
         if (/^\d+[\.\)]\s/.test(s)) {
-            if (inUl) { out.push('</ul>'); inUl = false; }
-            if (!inOl) { out.push('<ol style="margin:6px 0;padding-left:22px;color:#989088;font-size:0.9rem;line-height:1.75;">'); inOl = true; }
-            var tn = s.replace(/^\d+[\.\)]\s+/, '');
-            tn = highlightText(tn);
-            out.push('<li style="margin:4px 0;">' + tn + '</li>');
+            if (inList) { html.push('</ul>'); inList = false; }
+            var ntxt = s.replace(/^\d+[\.\)]\s+/, '');
+            ntxt = ntxt.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#fff;background:rgba(108,92,231,0.2);padding:1px 5px;border-radius:3px;">$1</strong>');
+            html.push('<div style="margin:5px 0;padding:8px 14px;background:#14101e;border-radius:6px;border-left:3px solid #6c5ce7;line-height:1.7;font-size:0.9rem;color:#b8b4c4;">' + ntxt + '</div>');
             continue;
         }
-
         // Regular paragraph
-        if (inUl) { out.push('</ul>'); inUl = false; }
-        if (inOl) { out.push('</ol>'); inOl = false; }
-        var p = highlightText(s);
-        out.push('<p style="margin:5px 0;line-height:1.85;color:#989088;font-size:0.9rem;">' + p + '</p>');
+        if (inList) { html.push('</ul>'); inList = false; }
+        var p = s.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#fff;background:rgba(108,92,231,0.2);padding:1px 5px;border-radius:3px;">$1</strong>');
+        // Highlight scores like 8/10
+        p = p.replace(/\b(\d+)\s*\/\s*10\b/g, '<span style="display:inline-block;background:rgba(108,92,231,0.2);color:#a78bfa;padding:1px 10px;border-radius:12px;font-weight:700;font-size:0.85rem;margin:0 2px;">$1<span style="opacity:0.5">/10</span></span>');
+        html.push('<p style="margin:5px 0;line-height:1.8;color:#b8b4c4;font-size:0.9rem;">' + p + '</p>');
     }
-    if (inUl) out.push('</ul>');
-    if (inOl) out.push('</ol>');
-    return out.join('\n');
+    if (inList) html.push('</ul>');
+
+    return '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-height:65vh;overflow-y:auto;padding-right:6px;scrollbar-width:thin;scrollbar-color:#2a2a3a #111119;">' + html.join('\n') + '</div>';
 }
 
-function highlightText(t) {
-    // Bold → warm orange highlight
-    t = t.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#fd8b42;font-weight:600;">$1</strong>');
-    // Score like 8/10 → orange badge
-    t = t.replace(/\b(\d+)\s*\/\s*10\b/g, '<span style="display:inline-block;color:#fd8b42;font-weight:700;font-size:0.85rem;border:1px solid rgba(253,139,66,0.3);padding:1px 9px;border-radius:10px;margin:0 3px;">$1/10</span>');
-    return t;
+function parseAISections(text) {
+    var sections = [];
+    var parts = text.split(/\n(?=#{2,4}\s+\d+[\.\、\s])/g);
+    parts.forEach(function(part) {
+        part = part.trim();
+        if (!part) return;
+        var m = part.match(/^#{2,4}\s+(.+?)\n([\s\S]*)/);
+        if (m) sections.push({ title: escHTML(m[1].trim()), body: m[2].trim() });
+    });
+    return sections;
+}
+
+function renderAIBody(body, c) {
+    return escHTML(body)
+        .replace(/^#{1,4}\s+(.+?)$/gm, function(_, t) {
+            return t ? '<br><strong style="color:' + c + ';opacity:0.9;font-size:0.95rem;">▸ ' + t + '</strong><br>' : '';
+        })
+        .replace(/\b(\d+)\s*\/\s*10\b/g, '<span style="display:inline-block;background:' + c + '22;color:' + c + ';padding:2px 12px;border-radius:14px;font-weight:700;font-size:0.9rem;margin:0 3px;border:1px solid ' + c + '44;">$1<span style="opacity:0.55">/10</span></span>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong style="color:' + c + ';background:' + c + '15;padding:1px 5px;border-radius:4px;">$1</strong>')
+        .replace(/^[\*\-][ \t]+(.+)$/gm, '<li style="margin-left:16px;margin-bottom:6px;">$1</li>')
+        .replace(/\n{2,}/g, '<br><br>')
+        .replace(/\n/g, '<br>');
 }
 
 function escHTML(s) {
