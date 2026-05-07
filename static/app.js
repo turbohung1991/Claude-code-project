@@ -454,19 +454,59 @@ async function viewAnalysis(file) {
         detail.classList.remove('hidden');
 
         const dt = data.created_at ? new Date(data.created_at * 1000).toLocaleString('zh-CN') : '';
+        const rawText = data.analysis || '';
         const html = `
             <div style="margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--card-border);">
                 <div style="font-size:1.1rem;font-weight:700;color:var(--primary);">${escHTML(data.desc || data.filename)}</div>
                 <div style="font-size:0.82rem;color:var(--text-dim);margin-top:4px;">
                     👤 ${escHTML(data.author || '未知')} · ⏱ ${data.duration || 0}秒 · 🤖 ${data.model || ''} · ${dt}
                 </div>
+                <div style="margin-top:10px;display:flex;gap:8px;">
+                    <button onclick="exportHistoryHTML(\`${escHTML(data.desc || data.filename).replace(/`/g, '')}\`, this)" class="btn btn-sm">🖨️ 导出 HTML</button>
+                    <button onclick="exportHistoryMD(this)" class="btn btn-sm">🖼️ 导出 MD</button>
+                </div>
             </div>
-            ${renderAIReport(data.analysis)}
+            ${renderAIReport(rawText)}
         `;
         $('#analysisDetailContent').innerHTML = html;
+        // Store raw text on the export buttons' parent for retrieval
+        $('#analysisDetailContent').dataset.raw = rawText;
+        $('#analysisDetailContent').dataset.title = (data.desc || data.filename || '分析报告').substring(0, 30);
     } catch {
         showToast('加载分析详情失败');
     }
+}
+
+function exportHistoryHTML(title, btn) {
+    const raw = $('#analysisDetailContent').dataset.raw || '';
+    const t = title || $('#analysisDetailContent').dataset.title || '分析报告';
+    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + t + '</title>' +
+        '<style>body{font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:40px;color:#333;line-height:1.8}' +
+        'h1{color:#6c5ce7}h2{color:#ff6b9d;border-bottom:1px solid #eee;padding-bottom:4px}h3{color:#4ecdc4}' +
+        'strong{color:#333}li{margin:4px 0}@media print{body{padding:20px}}</style></head><body>' +
+        simpleMarkdown(raw) + '</body></html>';
+    const blob = new Blob([html], {type: 'text/html'});
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (!w) {
+        const a = document.createElement('a');
+        a.href = url; a.download = t + '.html'; a.click();
+        showToast('报告已下载，用浏览器打开后按 Ctrl+P 打印');
+    } else {
+        w.addEventListener('load', () => { w.print(); });
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+function exportHistoryMD(btn) {
+    const raw = $('#analysisDetailContent').dataset.raw || '';
+    const title = $('#analysisDetailContent').dataset.title || '分析报告';
+    const blob = new Blob([raw], {type: 'text/markdown'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = title + '分析报告.md'; a.click();
+    URL.revokeObjectURL(url);
+    showToast('Markdown 报告已下载');
 }
 
 function closeHistory() {
