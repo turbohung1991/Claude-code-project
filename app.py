@@ -394,11 +394,11 @@ def _save_analysis(filename, video_data, analysis):
 # Export API (PDF / Image via Playwright)
 # ═══════════════════════════════════════════════════════════════
 
-EXPORT_CSS = """
+EXPORT_STYLE = """
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;min-height:100%}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-max-width:800px;margin:0 auto;padding:40px;color:#e0e0e0;background:#1a1a24;line-height:1.8}
-h1{color:#6c5ce7}h2{color:#ff6b9d;border-bottom:1px solid #2a2a3a;padding-bottom:4px}h3{color:#4ecdc4}
-strong{color:#fff}li{margin:4px 0}p{margin:6px 0}
+     background:#0f0f13;color:#e0e0e0;padding:36px 40px;line-height:1.8}
 """
 
 
@@ -415,9 +415,16 @@ def export_pdf():
         from playwright.sync_api import sync_playwright
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
-            page = browser.new_page()
+            page = browser.new_page(viewport={"width": 900, "height": 800})
             page.set_content(html, wait_until="networkidle", timeout=15000)
-            pdf_bytes = page.pdf(format="A4", print_background=True, margin={"top": "20mm", "bottom": "20mm", "left": "15mm", "right": "15mm"})
+            page.wait_for_timeout(500)
+            # Ensure full content is laid out before PDF
+            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+            page.wait_for_timeout(200)
+            pdf_bytes = page.pdf(
+                format="A4", print_background=True,
+                margin={"top": "15mm", "bottom": "15mm", "left": "12mm", "right": "12mm"}
+            )
             browser.close()
 
         import io
@@ -442,10 +449,13 @@ def export_image():
         from playwright.sync_api import sync_playwright
         with sync_playwright() as pw:
             browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
-            page = browser.new_page(viewport={"width": 800, "height": 600})
+            page = browser.new_page(viewport={"width": 900, "height": 800})
             page.set_content(html, wait_until="networkidle", timeout=15000)
+            page.wait_for_timeout(500)
+            # Capture true full height
             height = page.evaluate("document.body.scrollHeight")
-            page.set_viewport_size({"width": 800, "height": height + 40})
+            page.set_viewport_size({"width": 900, "height": max(height + 60, 800)})
+            page.wait_for_timeout(200)
             png_bytes = page.screenshot(full_page=True, type="png")
             browser.close()
 
@@ -460,10 +470,7 @@ def export_image():
 
 def _build_export_html(body_html, title):
     return f"""<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{title}</title>
-<style>
-*{{margin:0;padding:0;box-sizing:border-box}}
-body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f13;color:#e0e0e0;padding:40px;line-height:1.8}}
-</style></head><body>{body_html}</body></html>"""
+<style>{EXPORT_STYLE}</style></head><body>{body_html}</body></html>"""
 
 
 def _simple_md_to_html(text):
