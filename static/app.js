@@ -262,7 +262,7 @@ function updateProgress(data) {
         'parse': { label: '🔍 解析', icon: 'parse' },
         'download': { label: '📥 下载', icon: 'download' },
         'subtitle': { label: '📝 字幕', icon: 'subtitle' },
-        'ai': { label: '✨ AI分析', icon: 'ai' },
+        'ai': { label: '🧠 AI分析', icon: 'ai' },
         'done': { label: '✅ 完成', icon: 'done' },
     };
 
@@ -448,6 +448,7 @@ async function loadHistoryDownloads() {
                     <span class="h-size">${v.size_display}</span>
                     <a href="${v.url}" download class="btn btn-sm">💾</a>
                     <button class="btn btn-sm" onclick="playVideo('${v.url}')">▶</button>
+                    <button class="btn btn-sm" onclick="deleteVideo('${v.filename}', this)" style="color:#ff6b6b;">✕</button>
                 </div>
             `).join('');
         }
@@ -518,6 +519,22 @@ async function viewAnalysis(file) {
 
 function closeHistory() {
     historyModal.classList.add('hidden');
+}
+
+async function deleteVideo(filename, btn) {
+    if (!confirm(`确定删除「${filename}」吗？`)) return;
+    try {
+        const resp = await fetch('/api/videos/' + encodeURIComponent(filename), { method: 'DELETE' });
+        const data = await resp.json();
+        if (data.success) {
+            btn.closest('.history-item').remove();
+            showToast('已删除');
+        } else {
+            showToast('删除失败: ' + (data.error || '未知错误'));
+        }
+    } catch(e) {
+        showToast('删除失败: ' + e.message);
+    }
 }
 
 function playVideo(url) {
