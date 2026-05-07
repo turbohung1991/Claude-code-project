@@ -602,7 +602,8 @@ body {
 }
 
 /* Subtitle nav pill buttons with glow */
-.subtitle-nav { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; }
+.subtitle-nav { display:flex; gap:20px; justify-content:center; flex-wrap:wrap; margin-top:16px; }
+.container { padding-top:32px; }
 .subtitle-nav a, .subtitle-nav span.current {
     display:inline-block;
     padding:8px 20px;
