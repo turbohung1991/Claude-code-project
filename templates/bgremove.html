@@ -23,19 +23,24 @@
 <body>
     <div class="container">
         <header class="header">
-            <h1>智能抠图</h1>
-            <p class="subtitle">Clipdrop · remove.bg · rembg 本地模型</p>
+            <h1>AI智能工具箱</h1>
+            <p class="subtitle" style="display:flex; gap:24px; justify-content:center; flex-wrap:wrap;">
+                <a href="/" style="color:#ff6b9d; text-decoration:none; font-weight:600;">抖音小助手</a>
+                <span style="color:#555;">·</span>
+                <a href="/convert" style="color:#4ecdc4; text-decoration:none; font-weight:600;">文档转换神器</a>
+                <span style="color:#555;">·</span>
+                <span style="color:#ffa502; font-weight:600;">一键抠图</span>
+            </p>
         </header>
-
-        <div class="nav-bar">
-            <a href="/" class="nav-link">抖音下载</a>
-            <a href="/convert" class="nav-link">格式转换</a>
-            <a href="/bgremove" class="nav-link active">智能抠图</a>
-        </div>
 
         <div class="card">
             <form id="bg-form" enctype="multipart/form-data">
-                <div class="form-group"><label>上传图片</label><input type="file" name="file" accept="image/*" required></div>
+                <div class="form-group"><label>上传图片</label><div class="drop-zone">
+    <svg class="folder-icon" viewBox="0 0 64 48"><path d="M4 8a4 4 0 014-4h18l4 6h26a4 4 0 014 4v28a4 4 0 01-4 4H8a4 4 0 01-4-4V8z" fill="currentColor" stroke="none"/></svg>
+    <span class="drop-text">拖拽图片到此处，或点击上传</span>
+    <span class="drop-hint">点击上传或拖拽文件到此处</span>
+    <input type="file" name="file" accept="image/*" required>
+</div></div>
                 <div class="form-group"><label>模型选择</label><select name="model" id="bg-model">
                     <option value="Clipdrop API (云端高精)">Clipdrop API (云端高精)</option>
                     <option value="remove.bg API (云端高精)">remove.bg API (云端高精)</option>
@@ -90,6 +95,29 @@
             preview.classList.add('hidden');
         }
     });
-    </script>
+    
+// Drop zone drag-and-drop
+document.querySelectorAll(".drop-zone").forEach(zone => {
+    const input = zone.querySelector("input[type=file]");
+    ["dragenter","dragover","dragleave","drop"].forEach(evt => {
+        zone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); });
+    });
+    ["dragenter","dragover"].forEach(evt => {
+        zone.addEventListener(evt, () => zone.classList.add("drag-over"));
+    });
+    ["dragleave","drop"].forEach(evt => {
+        zone.addEventListener(evt, () => zone.classList.remove("drag-over"));
+    });
+    zone.addEventListener("drop", e => {
+        input.files = e.dataTransfer.files;
+        input.dispatchEvent(new Event("change"));
+    });
+    input.addEventListener("change", () => {
+        if (input.files.length > 0) zone.classList.add("has-file");
+        else zone.classList.remove("has-file");
+    });
+});
+
+</script>
 </body>
 </html>

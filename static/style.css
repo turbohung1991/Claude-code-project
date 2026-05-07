@@ -542,6 +542,56 @@ body {
 }
 
 /* ==================== 响应式 ==================== */
+/* ==================== 大号上传区 ==================== */
+.drop-zone {
+    position: relative;
+    border: 2px dashed #3a3a4a;
+    border-radius: var(--radius);
+    padding: 48px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: rgba(108,92,231,0.03);
+    min-height: 160px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+    border-color: var(--primary);
+    background: rgba(108,92,231,0.08);
+}
+.drop-zone .folder-icon {
+    width: 56px;
+    height: 56px;
+    opacity: 0.25;
+    transition: opacity 0.3s;
+    pointer-events: none;
+}
+.drop-zone:hover .folder-icon { opacity: 0.4; }
+.drop-zone .drop-text {
+    font-size: 1rem;
+    color: #888;
+    pointer-events: none;
+}
+.drop-zone .drop-hint {
+    font-size: 0.8rem;
+    color: #555;
+    pointer-events: none;
+}
+.drop-zone input[type=file] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+}
+.drop-zone.has-file {
+    border-color: var(--success);
+    background: rgba(0,214,143,0.05);
+}
+
 @media (max-width: 600px) {
     .container { padding: 12px; }
     .header h1 { font-size: 1.5rem; }

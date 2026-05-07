@@ -10,15 +10,15 @@
     <div class="container">
         <!-- 头部 -->
         <header class="header">
-            <h1>🎵 抖音视频下载分析</h1>
-            <p class="subtitle">下载 · 字幕 · AI策略分析</p>
+            <h1>AI智能工具箱</h1>
+            <p class="subtitle" style="display:flex; gap:24px; justify-content:center; flex-wrap:wrap;">
+                <a href="/" style="color:#ff6b9d; text-decoration:none; font-weight:600;">抖音小助手</a>
+                <span style="color:#555;">·</span>
+                <a href="/convert" style="color:#4ecdc4; text-decoration:none; font-weight:600;">文档转换神器</a>
+                <span style="color:#555;">·</span>
+                <a href="/bgremove" style="color:#ffa502; text-decoration:none; font-weight:600;">一键抠图</a>
+            </p>
         </header>
-
-        <div class="nav-bar">
-            <a href="/" class="nav-link active">抖音下载</a>
-            <a href="/convert" class="nav-link">格式转换</a>
-            <a href="/bgremove" class="nav-link">智能抠图</a>
-        </div>
 
         <!-- 输入区 -->
         <section class="input-section">
@@ -99,12 +99,23 @@
 
         <!-- AI分析区 -->
         <section id="aiSection" class="card hidden">
-            <h3>🧠 AI 内容策略分析</h3>
+            <h3>
+                <svg width="22" height="22" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:6px;">
+                    <path d="M12 2L14.4 9.2L15.06 11.38L17.23 10.7L19 10L15.5 13.5L13 16L12 20L9 14L5 9L8.5 8.5L12 2Z" fill="#6c5ce7" opacity="0.3"/>
+                    <path d="M12 2L12 20M12 2L9 14M12 2L14.4 9.2M12 20L15.5 13.5M12 20L8.5 8.5" stroke="url(#gemGrad)" stroke-width="1.5" stroke-linecap="round"/>
+                    <defs><linearGradient id="gemGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6c5ce7"/><stop offset="100%" stop-color="#4ecdc4"/></linearGradient></defs>
+                </svg>
+                AI 内容策略分析
+            </h3>
             <div id="aiLoading" class="ai-loading hidden">
                 <div class="spinner"></div>
                 <span>AI 正在深度分析中，请稍候...</span>
             </div>
             <div id="aiContent" class="ai-content markdown-body"></div>
+            <div id="aiExportBtns" class="hidden" style="margin-top:16px;padding-top:14px;border-top:1px solid #2a2a3a;display:flex;gap:10px;">
+                <button onclick="exportAnalysisPDF()" class="btn btn-sm" title="打印为PDF">🖨️ 导出 PDF</button>
+                <button onclick="exportAnalysisImage()" class="btn btn-sm" title="导出为图片">🖼️ 导出图片</button>
+            </div>
         </section>
 
         <!-- 历史记录弹窗 -->
