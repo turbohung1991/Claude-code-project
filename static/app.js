@@ -61,7 +61,7 @@ async function parseUrl() {
 
     resetAll();
     btnParse.disabled = true;
-    btnParse.textContent = '⏳ 解析中...';
+    btnParse.textContent = '解析中...';
     hideError();
 
     try {
@@ -102,7 +102,7 @@ async function parseUrl() {
         showError('网络错误: ' + e.message);
     } finally {
         btnParse.disabled = false;
-        btnParse.textContent = '🔍 解析';
+        btnParse.textContent = '解析';
     }
 }
 
@@ -130,7 +130,7 @@ function renderVideoCard(data) {
     if (info.music && info.music.title) {
         const musicDiv = document.createElement('div');
         musicDiv.className = 'meta-row';
-        musicDiv.innerHTML = `<span class="meta-item">🎵 <strong>${info.music.title}</strong>${info.music.author ? ' - ' + info.music.author : ''}</span>`;
+        musicDiv.innerHTML = `<span class="meta-item"><strong>${info.music.title}</strong>${info.music.author ? ' - ' + info.music.author : ''}</span>`;
         $('#videoHashtags').parentNode.insertBefore(musicDiv, $('#videoHashtags').nextSibling);
     }
 }
@@ -175,7 +175,7 @@ async function startProcess() {
     $('#progressSteps').innerHTML = '';
 
     btnDownload.disabled = true;
-    btnDownload.textContent = '⏳ 处理中...';
+    btnDownload.textContent = '处理中...';
 
     try {
         const resp = await fetch('/api/process', {
@@ -200,7 +200,7 @@ async function startProcess() {
     } catch (e) {
         showToast('请求失败: ' + e.message);
         btnDownload.disabled = false;
-        btnDownload.textContent = '📥 下载视频';
+        btnDownload.textContent = '下载视频';
     }
 }
 
@@ -256,11 +256,11 @@ function updateProgress(data) {
 
     // 步骤指示器
     const stepMap = {
-        'parse': { label: '🔍 解析', icon: 'parse' },
-        'download': { label: '📥 下载', icon: 'download' },
-        'subtitle': { label: '📝 字幕', icon: 'subtitle' },
-        'ai': { label: '✨ AI分析', icon: 'ai' },
-        'done': { label: '✅ 完成', icon: 'done' },
+        'parse': { label: '解析', icon: 'parse' },
+        'download': { label: '下载', icon: 'download' },
+        'subtitle': { label: '字幕', icon: 'subtitle' },
+        'ai': { label: 'AI 分析', icon: 'ai' },
+        'done': { label: '完成', icon: 'done' },
     };
 
     const stepInfo = stepMap[data.step];
@@ -282,7 +282,7 @@ function updateProgress(data) {
             $('#progressSteps').innerHTML = stepOrder.slice(0, -1).map(s => {
                 const info = stepMap[s];
                 return `<span class="step-badge done">${info.label}</span>`;
-            }).join(' → ') + '<span class="step-badge done">✅ 完成</span>';
+            }).join(' → ') + '<span class="step-badge done">完成</span>';
         }
     }
 }
@@ -594,7 +594,7 @@ function simpleMarkdown(text) {
 
 // ==================== AI 结构化渲染 (增强卡片样式) ====================
 const AI_COLORS = ['#6c5ce7', '#ff6b9d', '#4ecdc4', '#ffa502', '#00d68f', '#45aaf2'];
-const AI_ICONS  = ['🎯', '🔥', '✍️', '👁️', '📊', '🧬'];
+const AI_ICONS  = ['', '', '', '', '', ''];
 const AI_GRADIENTS = [
     'rgba(108,92,231,0.12)', 'rgba(255,107,157,0.12)', 'rgba(78,205,196,0.12)',
     'rgba(255,165,2,0.12)',  'rgba(0,214,143,0.12)',  'rgba(69,170,242,0.12)'
@@ -619,7 +619,7 @@ function renderCardSections(sections) {
         var icon = AI_ICONS[i % AI_ICONS.length];
         html += '<div style="background:linear-gradient(135deg,' + grad + ',transparent);border-left:3px solid ' + c + ';border-radius:0 10px 10px 0;padding:16px 18px;margin-bottom:16px;border-top:1px solid #1e1e2e;border-right:1px solid #1e1e2e;border-bottom:1px solid #1e1e2e;">';
         html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">';
-        html += '<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:' + c + '22;font-size:1rem;">' + icon + '</span>';
+        if (icon) html += '<span style="display:inline-flex;align-items:center;justify-content:center;width:8px;height:8px;border-radius:50%;background:' + c + ';margin-right:2px;flex-shrink:0;"></span>';
         html += '<span style="font-size:1.05rem;font-weight:700;color:' + c + ';letter-spacing:0.01em;">' + escHTML(sec.title) + '</span>';
         html += '</div>';
         html += '<div style="color:#b8b4c4;font-size:0.92rem;line-height:1.85;">' + renderAIBody(sec.body, c) + '</div>';
@@ -724,4 +724,4 @@ historyModal.addEventListener('click', (e) => {
 });
 
 // ==================== 初始化 ====================
-console.log('🎵 抖音视频下载分析 Web 应用已就绪');
+console.log('AI 智能工具箱已就绪');

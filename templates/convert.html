@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/style.css">
     <style>
     </style>
+    <link rel="icon" href="data:,">
 </head>
 <body>
     <div class="container">
@@ -23,15 +24,15 @@
 
         <!-- Toggle buttons (sticky) -->
         <div class="convert-toggles">
-            <a href="#!" class="active" data-panel="panel-pdf-ppt">📄 PDF → PPT</a>
-            <a href="#!" data-panel="panel-ppt-images">🎞️ PPT → 图片</a>
-            <a href="#!" data-panel="panel-pdf-images">📑 PDF → 图片</a>
-            <a href="#!" data-panel="panel-images-pdf">🖼️ 图片 → PDF</a>
+            <a href="#!" class="active" data-panel="panel-pdf-ppt">PDF → PPT</a>
+            <a href="#!" data-panel="panel-ppt-images">PPT → 图片</a>
+            <a href="#!" data-panel="panel-pdf-images">PDF → 图片</a>
+            <a href="#!" data-panel="panel-images-pdf">图片 → PDF</a>
         </div>
 
         <!-- Panel: PDF → PPT -->
         <div class="card convert-panel active" id="panel-pdf-ppt">
-            <h3>📄 PDF → PPT</h3>
+            <h3>PDF → PPT</h3>
             <form id="form-pdf-ppt" enctype="multipart/form-data">
                 <div class="form-group"><label>上传 PDF</label>
                     <div class="drop-zone">
@@ -49,7 +50,7 @@
 
         <!-- Panel: PPT → 图片 -->
         <div class="card convert-panel" id="panel-ppt-images">
-            <h3>🎞️ PPT → 图片</h3>
+            <h3>PPT → 图片</h3>
             <form id="form-ppt-images" enctype="multipart/form-data">
                 <div class="form-group"><label>上传 PPTX</label>
                     <div class="drop-zone">
@@ -67,7 +68,7 @@
 
         <!-- Panel: PDF → 图片 -->
         <div class="card convert-panel" id="panel-pdf-images">
-            <h3>📑 PDF → 图片</h3>
+            <h3>PDF → 图片</h3>
             <form id="form-pdf-images" enctype="multipart/form-data">
                 <div class="form-group"><label>上传 PDF</label>
                     <div class="drop-zone">
@@ -86,7 +87,7 @@
 
         <!-- Panel: 图片 → PDF -->
         <div class="card convert-panel" id="panel-images-pdf">
-            <h3>🖼️ 图片 → PDF</h3>
+            <h3>图片 → PDF</h3>
             <form id="form-images-pdf" enctype="multipart/form-data">
                 <div class="form-group"><label>上传多张图片</label>
                     <div class="drop-zone">
