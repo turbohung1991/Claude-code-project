@@ -205,26 +205,25 @@ def _extract_from_render_data(data, depth=0):
 
 
 def _find_best_video_url(aweme: dict) -> str:
-    """Extract the best quality video download URL."""
+    """Extract the best quality downloadable video URL."""
     video = aweme.get("video", {})
 
-    # Try bit_rate options first (best quality)
+    # 1) download_addr — direct mp4, most reliable
+    for key in ("download_addr", "play_addr_h264", "play_addr"):
+        addr = video.get(key, {})
+        url_list = addr.get("url_list", [])
+        if url_list:
+            return url_list[0]
+
+    # 2) bit_rate options — highest quality first
     bit_rates = video.get("bit_rate", [])
     if bit_rates:
-        # Sort by bit_rate descending
         bit_rates.sort(key=lambda x: x.get("bit_rate", 0), reverse=True)
         for br in bit_rates:
             addr = br.get("play_addr", {}) or br.get("playAddr", {})
             url_list = addr.get("url_list", []) or addr.get("urlList", [])
             if url_list:
                 return url_list[0]
-
-    # Fallback to standard download URLs
-    for key in ("download_addr", "play_addr", "play_addr_h264"):
-        addr = video.get(key, {})
-        url_list = addr.get("url_list", [])
-        if url_list:
-            return url_list[0]
 
     raise RuntimeError("未找到可下载的视频地址")
 
