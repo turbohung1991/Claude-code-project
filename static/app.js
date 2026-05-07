@@ -584,57 +584,71 @@ function simpleMarkdown(text) {
     return html;
 }
 
-// ==================== AI 结构化渲染 ====================
-const AI_COLORS = ['#ff6b9d', '#ff8c42', '#4ecdc4', '#8e7cf7', '#f9d56e', '#6bcb77'];
-const AI_ICONS = ['🎯', '🔥', '✍️', '👁️', '📊', '🧬'];
+// ==================== AI 结构化渲染 (Gradio 原版样式) ====================
 
 function renderAIReport(rawText) {
     if (!rawText) return '';
-    const sections = parseAISections(rawText);
-    if (!sections.length) return simpleMarkdown(rawText);
-
-    let html = '';
-    sections.forEach((sec, i) => {
-        const c = AI_COLORS[Math.min(i, AI_COLORS.length - 1)];
-        html += `<div class="ai-card" style="border-left:3px solid ${c}; background:#1a1020; padding:14px 16px; border-radius:8px; margin-bottom:14px;">
-            <div class="ai-card-hd" style="font-size:1.05rem; font-weight:700; color:${c}; margin-bottom:10px; display:flex; align-items:center; gap:8px;">
-                ${AI_ICONS[Math.min(i, AI_ICONS.length - 1)]} ${sec.title}
-            </div>
-            <div class="ai-card-bd" style="color:#c0b8c4; font-size:0.92rem; line-height:1.8;">
-                ${renderAIBody(sec.body, c)}
-            </div>
-        </div>`;
-    });
-    return html;
+    // Use the old Gradio-style _md_to_html approach for rich visual output
+    const html = mdToHTML(rawText);
+    return html || simpleMarkdown(rawText);
 }
 
-function parseAISections(text) {
-    const sections = [];
-    // 只按"数字标题"分割（如 ### 1. / #### 2、/ ## 一、），子标题保留在body内
-    const parts = text.split(/\n(?=#{2,4}\s+\d+[\.\、\s])/g);
-    parts.forEach(part => {
-        part = part.trim();
-        if (!part) return;
-        const m = part.match(/^#{2,4}\s+(.+?)\n([\s\S]*)/);
-        if (m) {
-            sections.push({ title: escHTML(m[1].trim()), body: m[2].trim() });
+function mdToHTML(md) {
+    if (!md) return '';
+    var lines = md.trim().split('\n');
+    var html = [];
+    var inList = false;
+
+    for (var i = 0; i < lines.length; i++) {
+        var s = lines[i].trim();
+        if (!s) {
+            if (inList) { html.push('</ul>'); inList = false; }
+            html.push('<div style="height:8px;"></div>');
+            continue;
         }
-    });
-    return sections;
-}
 
-function renderAIBody(body, c) {
-    return escHTML(body)
-        // 四级标题 → 加粗小标题
-        .replace(/^#{1,4}\s+(.+?)$/gm, (_, t) => t ? `<br><strong style="color:${c};opacity:0.85;">${t}</strong><br>` : '')
-        // 评分高亮 — 匹配 "8/10" "8 / 10"
-        .replace(/\b(\d+)\s*\/\s*10\b/g, `<span class="ai-badge" style="background:${c}22;color:${c};padding:2px 10px;border-radius:14px;font-weight:700;font-size:0.88rem;margin:0 2px;">$1<span style="opacity:0.5">/10</span></span>`)
-        // 粗体 → accent 高亮
-        .replace(/\*\*(.+?)\*\*/g, `<strong style="color:${c};">$1</strong>`)
-        // 列表项
-        .replace(/^[\*\-][ \t]+(.+)$/gm, '<li style="margin-left:20px;margin-bottom:5px;">$1</li>')
-        .replace(/\n{2,}/g, '<br><br>')
-        .replace(/\n/g, '<br>');
+        // H2
+        if (/^##\s/.test(s)) {
+            if (inList) { html.push('</ul>'); inList = false; }
+            var h2 = s.replace(/^##\s+/, '');
+            html.push('<h2 style="font-size:1.15rem;color:#ff6b9d;margin:20px 0 10px;padding-bottom:6px;border-bottom:1px solid #2a2a3a;">' + escHTML(h2) + '</h2>');
+            continue;
+        }
+
+        // H3
+        if (/^###\s/.test(s)) {
+            if (inList) { html.push('</ul>'); inList = false; }
+            var h3 = s.replace(/^###\s+/, '');
+            html.push('<h3 style="font-size:1rem;color:#4ecdc4;margin:14px 0 8px;">' + escHTML(h3) + '</h3>');
+            continue;
+        }
+
+        // Bullet
+        if (/^[-*]\s/.test(s)) {
+            if (!inList) { html.push('<ul style="margin:4px 0;padding-left:20px;">'); inList = true; }
+            var txt = s.replace(/^[-*]\s+/, '');
+            txt = txt.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#e0e0e0;">$1</strong>');
+            html.push('<li style="margin:4px 0;line-height:1.7;color:#b0b0b0;font-size:0.9rem;">' + txt + '</li>');
+            continue;
+        }
+
+        // Numbered
+        if (/^\d+[\.\)]\s/.test(s)) {
+            if (inList) { html.push('</ul>'); inList = false; }
+            var ntxt = s.replace(/^\d+[\.\)]\s+/, '');
+            ntxt = ntxt.replace(/\*\*(.+?)\*\*/g, '<strong style="color:#e0e0e0;">$1</strong>');
+            html.push('<div style="margin:6px 0;padding:10px 14px;background:#14101e;border-radius:8px;border:1px solid #2a2a3a;line-height:1.7;font-size:0.9rem;border-left:3px solid #6c5ce7;">' + ntxt + '</div>');
+            continue;
+        }
+
+        // Regular paragraph
+        if (inList) { html.push('</ul>'); inList = false; }
+        var p = s.replace(/\*\*(.+?)\*\*/g, '<span style="background:rgba(255,107,157,0.15);padding:1px 6px;border-radius:4px;">$1</span>');
+        html.push('<p style="margin:6px 0;line-height:1.8;color:#b0b0b0;font-size:0.9rem;">' + p + '</p>');
+    }
+    if (inList) html.push('</ul>');
+
+    return '<div style="font-family:-apple-system,BlinkMacSystemFont,\'Segoe UI\',sans-serif;max-height:65vh;overflow-y:auto;padding-right:8px;scrollbar-width:thin;scrollbar-color:#2a2a3a #111119;">' + html.join('\n') + '</div>';
 }
 
 function escHTML(s) {
