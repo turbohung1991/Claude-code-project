@@ -462,8 +462,8 @@ async function viewAnalysis(file) {
                     👤 ${escHTML(data.author || '未知')} · ⏱ ${data.duration || 0}秒 · 🤖 ${data.model || ''} · ${dt}
                 </div>
                 <div style="margin-top:10px;display:flex;gap:8px;">
-                    <button onclick="exportHistoryHTML(\`${escHTML(data.desc || data.filename).replace(/`/g, '')}\`, this)" class="btn btn-sm">🖨️ 导出 HTML</button>
-                    <button onclick="exportHistoryMD(this)" class="btn btn-sm">🖼️ 导出 MD</button>
+                    <button class="btn btn-sm btn-export-html">🖨️ 导出 HTML</button>
+                    <button class="btn btn-sm btn-export-md">🖼️ 导出 MD</button>
                 </div>
             </div>
             ${renderAIReport(rawText)}
@@ -477,36 +477,34 @@ async function viewAnalysis(file) {
     }
 }
 
-function exportHistoryHTML(title, btn) {
-    const raw = $('#analysisDetailContent').dataset.raw || '';
-    const t = title || $('#analysisDetailContent').dataset.title || '分析报告';
-    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + t + '</title>' +
-        '<style>body{font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:40px;color:#333;line-height:1.8}' +
-        'h1{color:#6c5ce7}h2{color:#ff6b9d;border-bottom:1px solid #eee;padding-bottom:4px}h3{color:#4ecdc4}' +
-        'strong{color:#333}li{margin:4px 0}@media print{body{padding:20px}}</style></head><body>' +
-        simpleMarkdown(raw) + '</body></html>';
-    const blob = new Blob([html], {type: 'text/html'});
-    const url = URL.createObjectURL(blob);
-    const w = window.open(url, '_blank');
-    if (!w) {
-        const a = document.createElement('a');
-        a.href = url; a.download = t + '.html'; a.click();
-        showToast('报告已下载，用浏览器打开后按 Ctrl+P 打印');
-    } else {
-        w.addEventListener('load', () => { w.print(); });
-    }
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
-}
-
-function exportHistoryMD(btn) {
+function exportHistoryRaw(format) {
     const raw = $('#analysisDetailContent').dataset.raw || '';
     const title = $('#analysisDetailContent').dataset.title || '分析报告';
-    const blob = new Blob([raw], {type: 'text/markdown'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = title + '分析报告.md'; a.click();
-    URL.revokeObjectURL(url);
-    showToast('Markdown 报告已下载');
+    if (format === 'html') {
+        const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + title + '</title>' +
+            '<style>body{font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:40px;color:#333;line-height:1.8}' +
+            'h1{color:#6c5ce7}h2{color:#ff6b9d;border-bottom:1px solid #eee;padding-bottom:4px}h3{color:#4ecdc4}' +
+            'strong{color:#333}li{margin:4px 0}@media print{body{padding:20px}}</style></head><body>' +
+            simpleMarkdown(raw) + '</body></html>';
+        const blob = new Blob([html], {type: 'text/html'});
+        const url = URL.createObjectURL(blob);
+        const w = window.open(url, '_blank');
+        if (!w) {
+            const a = document.createElement('a');
+            a.href = url; a.download = title + '.html'; a.click();
+            showToast('报告已下载，用浏览器打开后按 Ctrl+P 打印');
+        } else {
+            w.addEventListener('load', function() { w.print(); });
+        }
+        setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+    } else {
+        const blob = new Blob([raw], {type: 'text/markdown'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = title + '分析报告.md'; a.click();
+        URL.revokeObjectURL(url);
+        showToast('Markdown 报告已下载');
+    }
 }
 
 function closeHistory() {
@@ -645,9 +643,11 @@ function escHTML(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// ==================== 弹窗外部点击关闭 ====================
+// ==================== 弹窗外部点击关闭 & 导出按钮 ====================
 historyModal.addEventListener('click', (e) => {
     if (e.target === historyModal) closeHistory();
+    if (e.target.classList.contains('btn-export-html')) exportHistoryRaw('html');
+    if (e.target.classList.contains('btn-export-md')) exportHistoryRaw('md');
 });
 
 // ==================== 初始化 ====================
