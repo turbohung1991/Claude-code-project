@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智能抠图</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .nav-bar { display:flex; gap:8px; justify-content:center; margin-bottom:20px; }
+        .nav-link { padding:8px 18px; border-radius:20px; font-size:0.9rem; color:#888; text-decoration:none; background:#1a1a24; border:1px solid #2a2a3a; transition:all 0.2s; }
+        .nav-link:hover { color:#e0e0e0; border-color:#6c5ce7; }
+        .nav-link.active { background:#6c5ce7; color:#fff; border-color:#6c5ce7; }
+        .form-group { margin-bottom:14px; }
+        .form-group label { display:block; margin-bottom:6px; color:#b0b0b0; font-size:0.9rem; }
+        .form-group input[type=file], .form-group select { width:100%; padding:10px; background:#111119; border:1px solid #2a2a3a; border-radius:10px; color:#e0e0e0; }
+        .form-row { display:flex; gap:12px; align-items:center; }
+        .form-row label { color:#b0b0b0; font-size:0.85rem; display:flex; align-items:center; gap:6px; }
+        .preview-box { margin-top:16px; text-align:center; }
+        .preview-box img { max-width:100%; max-height:400px; border-radius:12px; }
+        .credits { font-size:0.82rem; color:#888; margin-top:8px; padding:6px 12px; background:#111119; border-radius:6px; border:1px solid #2a2a3a; display:inline-block; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>智能抠图</h1>
+            <p class="subtitle">Clipdrop · remove.bg · rembg 本地模型</p>
+        </header>
+
+        <div class="nav-bar">
+            <a href="/" class="nav-link">抖音下载</a>
+            <a href="/convert" class="nav-link">格式转换</a>
+            <a href="/bgremove" class="nav-link active">智能抠图</a>
+        </div>
+
+        <div class="card">
+            <form id="bg-form" enctype="multipart/form-data">
+                <div class="form-group"><label>上传图片</label><input type="file" name="file" accept="image/*" required></div>
+                <div class="form-group"><label>模型选择</label><select name="model" id="bg-model">
+                    <option value="Clipdrop API (云端高精)">Clipdrop API (云端高精)</option>
+                    <option value="remove.bg API (云端高精)">remove.bg API (云端高精)</option>
+                    <option value="bria_rmbg (本地推荐)">bria_rmbg (本地推荐)</option>
+                    <option value="isnet (通用)">isnet (通用)</option>
+                    <option value="u2net (风景)">u2net (风景)</option>
+                    <option value="u2net_human (人像)">u2net_human (人像)</option>
+                    <option value="u2net_cloth (服饰)">u2net_cloth (服饰)</option>
+                    <option value="silueta (快速)">silueta (快速)</option>
+                </select></div>
+                <div class="form-row">
+                    <label><input type="checkbox" name="alpha_matting" value="true"> Alpha Matting</label>
+                    <label><input type="checkbox" name="feather" value="true" checked> 边缘羽化</label>
+                </div>
+                <div class="form-group"><label>背景色</label><select name="bg_color">
+                    <option value="transparent">透明</option>
+                    <option value="#FFFFFF">白色</option>
+                    <option value="#000000">黑色</option>
+                    <option value="#FF0000">红色</option>
+                    <option value="#00FF00">绿色</option>
+                    <option value="#0000FF">蓝色</option>
+                </select></div>
+                <button type="submit" class="btn btn-primary">去除背景</button>
+            </form>
+            <div id="credits" class="credits"></div>
+            <div id="preview" class="preview-box hidden"></div>
+            <div id="error" class="error-msg hidden"></div>
+        </div>
+    </div>
+
+    <script>
+    document.getElementById('bg-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const preview = document.getElementById('preview');
+        const error = document.getElementById('error');
+        const credits = document.getElementById('credits');
+        preview.classList.add('hidden');
+        error.classList.add('hidden');
+        preview.innerHTML = '<span style="color:#888;">处理中...</span>';
+        preview.classList.remove('hidden');
+
+        const fd = new FormData(e.target);
+        try {
+            const resp = await fetch('/api/bgremove', { method: 'POST', body: fd });
+            const data = await resp.json();
+            if (!data.success) throw new Error(data.error);
+            preview.innerHTML = `<img src="${data.result_url}" alt="Result"><br><a href="${data.result_url}" download class="btn btn-success" style="margin-top:12px;">下载 PNG</a>`;
+            if (data.credits) credits.textContent = data.credits;
+        } catch (err) {
+            error.textContent = err.message;
+            error.classList.remove('hidden');
+            preview.classList.add('hidden');
+        }
+    });
+    </script>
+</body>
+</html>

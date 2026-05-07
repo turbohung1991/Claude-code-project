@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>格式转换</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .nav-bar { display:flex; gap:8px; justify-content:center; margin-bottom:20px; }
+        .nav-link { padding:8px 18px; border-radius:20px; font-size:0.9rem; color:#888; text-decoration:none; background:#1a1a24; border:1px solid #2a2a3a; transition:all 0.2s; }
+        .nav-link:hover { color:#e0e0e0; border-color:#6c5ce7; }
+        .nav-link.active { background:#6c5ce7; color:#fff; border-color:#6c5ce7; }
+        .form-group { margin-bottom:14px; }
+        .form-group label { display:block; margin-bottom:6px; color:#b0b0b0; font-size:0.9rem; }
+        .form-group input[type=file], .form-group select, .form-group input[type=range] { width:100%; padding:10px; background:#111119; border:1px solid #2a2a3a; border-radius:10px; color:#e0e0e0; }
+        .result-box { margin-top:16px; padding:16px; background:#111119; border-radius:10px; border:1px solid #2a2a3a; }
+        .result-box a { color:#6c5ce7; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>格式转换</h1>
+            <p class="subtitle">PDF · PPT · 图片</p>
+        </header>
+
+        <div class="nav-bar">
+            <a href="/" class="nav-link">抖音下载</a>
+            <a href="/convert" class="nav-link active">格式转换</a>
+            <a href="/bgremove" class="nav-link">智能抠图</a>
+        </div>
+
+        <div class="card">
+            <h3>PDF → PPT</h3>
+            <form id="form-pdf-ppt" enctype="multipart/form-data">
+                <div class="form-group"><label>上传 PDF</label><input type="file" name="file" accept=".pdf"></div>
+                <div class="form-group"><label>清晰度 (DPI)</label><input type="range" name="dpi" min="72" max="300" value="200" step="10" oninput="this.nextElementSibling.textContent=this.value"><span>200</span></div>
+                <button type="submit" class="btn btn-primary">转换为 PPTX</button>
+            </form>
+            <div class="result-box hidden" id="result-1"></div>
+        </div>
+
+        <div class="card">
+            <h3>PPT → 图片</h3>
+            <form id="form-ppt-images" enctype="multipart/form-data">
+                <div class="form-group"><label>上传 PPTX</label><input type="file" name="file" accept=".pptx"></div>
+                <div class="form-group"><label>清晰度 (DPI)</label><input type="range" name="dpi" min="72" max="300" value="200" step="10" oninput="this.nextElementSibling.textContent=this.value"><span>200</span></div>
+                <button type="submit" class="btn btn-primary">转换为图片 ZIP</button>
+            </form>
+            <div class="result-box hidden" id="result-2"></div>
+        </div>
+
+        <div class="card">
+            <h3>PDF → 图片</h3>
+            <form id="form-pdf-images" enctype="multipart/form-data">
+                <div class="form-group"><label>上传 PDF</label><input type="file" name="file" accept=".pdf"></div>
+                <div class="form-group"><label>清晰度 (DPI)</label><input type="range" name="dpi" min="72" max="300" value="200" step="10" oninput="this.nextElementSibling.textContent=this.value"><span>200</span></div>
+                <div class="form-group"><label>格式</label><select name="format"><option value="PNG">PNG</option><option value="JPEG">JPEG</option></select></div>
+                <button type="submit" class="btn btn-primary">转换为图片 ZIP</button>
+            </form>
+            <div class="result-box hidden" id="result-3"></div>
+        </div>
+
+        <div class="card">
+            <h3>图片 → PDF</h3>
+            <form id="form-images-pdf" enctype="multipart/form-data">
+                <div class="form-group"><label>上传多张图片</label><input type="file" name="files" accept="image/*" multiple></div>
+                <button type="submit" class="btn btn-primary">合并为 PDF</button>
+            </form>
+            <div class="result-box hidden" id="result-4"></div>
+        </div>
+    </div>
+
+    <script>
+    function bindForm(id, url) {
+        const form = document.getElementById(id);
+        const result = document.getElementById('result-' + id.split('-').pop());
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const fd = new FormData(form);
+            result.classList.remove('hidden');
+            result.innerHTML = '<span style="color:#888;">处理中...</span>';
+            try {
+                const resp = await fetch(url, { method: 'POST', body: fd });
+                if (!resp.ok) { const err = await resp.json(); throw new Error(err.error); }
+                const blob = await resp.blob();
+                const downloadUrl = URL.createObjectURL(blob);
+                const disp = resp.headers.get('Content-Disposition') || '';
+                const name = disp.match(/filename="?(.+?)"?$/)?.[1] || 'download';
+                result.innerHTML = `<a href="${downloadUrl}" download="${name}" class="btn btn-success">下载 ${name}</a>`;
+            } catch (err) {
+                result.innerHTML = `<span style="color:#ff6b6b;">${err.message}</span>`;
+            }
+        });
+    }
+    bindForm('form-pdf-ppt', '/api/convert/pdf-to-ppt');
+    bindForm('form-ppt-images', '/api/convert/ppt-to-images');
+    bindForm('form-pdf-images', '/api/convert/pdf-to-images');
+    bindForm('form-images-pdf', '/api/convert/images-to-pdf');
+    </script>
+</body>
+</html>
