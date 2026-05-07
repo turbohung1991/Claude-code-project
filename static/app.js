@@ -327,14 +327,21 @@ function showAIReady(data) {
     aiSection.scrollIntoView({ behavior: 'smooth' });
 }
 
+function stripScrollStyles(html) {
+    // Remove max-height and overflow from the outer scroll wrapper so export captures full content
+    return html.replace(/max-height:\s*65vh\s*;?/gi, '')
+               .replace(/overflow-y:\s*auto\s*;?/gi, '')
+               .replace(/overflow:\s*auto\s*;?/gi, '');
+}
+
 async function doExport(format) {
     const el = $('#aiContent');
     let html = el ? el.innerHTML : '';
-    // Fallback: render raw markdown if DOM is empty
     if ((!html || html.length < 50) && el && el.dataset.raw) {
         html = renderAIReport(el.dataset.raw) || simpleMarkdown(el.dataset.raw);
     }
     if (!html || html.length < 50) { showToast('没有可导出的分析内容'); return; }
+    html = stripScrollStyles(html);
     const title = (videoData?.info?.desc || '分析报告').substring(0, 30);
     const endpoint = format === 'pdf' ? '/api/export/pdf' : '/api/export/image';
     const ext = format === 'pdf' ? '.pdf' : '.png';
@@ -368,6 +375,7 @@ async function exportHistoryRaw(format) {
         }
     }
     if (!html || html.length < 50) { showToast('没有可导出的分析内容'); return; }
+    html = stripScrollStyles(html);
     const title = el.dataset.title || '分析报告';
     const endpoint = format === 'pdf' ? '/api/export/pdf' : '/api/export/image';
     const ext = format === 'pdf' ? '.pdf' : '.png';
