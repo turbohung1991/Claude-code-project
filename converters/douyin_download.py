@@ -81,10 +81,18 @@ def _get_video_info_playwright(video_id: str) -> dict:
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(
-            headless=True,
-            args=["--no-sandbox", "--disable-setuid-sandbox"],
-        )
+        # Try headless-shell first (newer Playwright), fall back to regular chromium
+        try:
+            browser = pw.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox"],
+            )
+        except Exception:
+            browser = pw.chromium.launch(
+                channel="chromium",
+                headless=True,
+                args=["--no-sandbox", "--disable-setuid-sandbox"],
+            )
         context = browser.new_context(
             user_agent=DESKTOP_UA,
             viewport={"width": 1440, "height": 900},
