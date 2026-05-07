@@ -4,6 +4,7 @@ Calls Douyin API directly with a_bogus signing. No external service required.
 """
 
 import json
+import os
 import re
 import tempfile
 from pathlib import Path
@@ -98,18 +99,37 @@ def _build_signed_url(aweme_id: str) -> str:
     return f"{POST_DETAIL_URL}?{query}&a_bogus={quote(a_bogus, safe='')}"
 
 
+DOUYIN_COOKIE = os.environ.get("DOUYIN_COOKIE", "")
+
+
 def _fetch_video_info(aweme_id: str) -> dict:
     """Call Douyin API directly with a_bogus signing to get video metadata."""
     url = _build_signed_url(aweme_id)
 
-    req = Request(url, headers={
+    headers = {
         "User-Agent": DOUYIN_UA,
         "Referer": "https://www.douyin.com/",
         "Accept-Language": "zh-CN,zh;q=0.9",
-    })
+    }
+    if DOUYIN_COOKIE:
+        headers["Cookie"] = DOUYIN_COOKIE
 
+    req = Request(url, headers=headers)
     resp = urlopen(req, timeout=30)
-    data = json.loads(resp.read().decode())
+    raw = resp.read().decode(errors="replace")
+
+    if not raw.strip():
+        raise RuntimeError(
+            "Douyin API 返回空响应，可能是请求被拦截。"
+            "请设置 DOUYIN_COOKIE 环境变量（从浏览器导出 douyin.com 的 Cookie）。"
+        )
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        raise RuntimeError(
+            f"Douyin API 返回非 JSON 数据（前200字符）: {raw[:200]}"
+        )
 
     if data.get("status_code") != 0:
         raise RuntimeError(f"Douyin API 返回错误: {data.get('status_msg', 'unknown')}")
@@ -139,15 +159,94 @@ def _find_video_url(aweme: dict) -> str:
     raise RuntimeError("未找到可下载的视频地址")
 
 
+def _download_via_ytdlp(url: str, aweme_id: str) -> dict:
+    """Fallback: use yt-dlp to download the video."""
+    import yt_dlp
+
+    output_dir = Path(tempfile.mkdtemp())
+    output_path = output_dir / f"douyin_{aweme_id}.mp4"
+
+    opts = {
+        "outtmpl": str(output_path.with_suffix("")),
+        "format": "best[ext=mp4]",
+        "quiet": True,
+        "no_warnings": True,
+    }
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=True)
+        title = info.get("title", "")
+        duration = int(info.get("duration", 0))
+
+    # yt-dlp adds extension automatically
+    actual = list(output_dir.glob("*.mp4"))
+    if actual:
+        output_path = actual[0]
+
+    size = output_path.stat().st_size
+    if size < 10000:
+        output_path.unlink()
+        raise RuntimeError("yt-dlp 下载的视频过小")
+
+    return {
+        "video_id": aweme_id,
+        "title": title,
+        "description": info.get("description", ""),
+        "duration": duration,
+        "file_path": str(output_path),
+        "output_dir": str(output_dir),
+    }
+
+
+def _download_via_api_service(aweme_id: str) -> dict:
+    """Fallback: use local Douyin API service (port 80)."""
+    api_url = f"http://127.0.0.1:80/api/douyin/web/fetch_one_video?aweme_id={aweme_id}"
+
+    req = Request(api_url, headers={"User-Agent": DOUYIN_UA})
+    resp = urlopen(req, timeout=30)
+    data = json.loads(resp.read().decode())
+
+    if data.get("code") != 200:
+        return None
+
+    aweme = data.get("data", {}).get("aweme_detail", {})
+    if not aweme:
+        return None
+
+    video_url = _find_video_url(aweme)
+    if not video_url:
+        return None
+
+    output_dir = Path(tempfile.mkdtemp())
+    output_path = output_dir / f"douyin_{aweme_id}.mp4"
+
+    dl_req = Request(video_url, headers={
+        "User-Agent": MOBILE_UA, "Referer": "https://www.douyin.com/",
+    })
+    with urlopen(dl_req, timeout=120) as f:
+        output_path.write_bytes(f.read())
+
+    if output_path.stat().st_size < 10000:
+        output_path.unlink()
+        return None
+
+    title = aweme.get("desc") or aweme.get("share_info", {}).get("share_title") or ""
+    return {
+        "video_id": aweme_id,
+        "title": title,
+        "description": aweme.get("desc", ""),
+        "duration": int(aweme.get("duration", 0)) // 1000,
+        "file_path": str(output_path),
+        "output_dir": str(output_dir),
+    }
+
+
 def download_video(url: str, cookie_file: str = None) -> dict:
-    """Download a Douyin video.
+    """Download a Douyin video. Tries multiple strategies.
 
     Returns dict with video_id, title, file_path, output_dir, duration.
-    Works standalone — no external API service needed.
     """
     url = _extract_url(url)
 
-    # Resolve short link
     if SHORT_LINK_RE.search(url):
         req = Request(url, headers={"User-Agent": DOUYIN_UA})
         full_url = urlopen(req, timeout=15).geturl()
@@ -155,35 +254,50 @@ def download_video(url: str, cookie_file: str = None) -> dict:
         full_url = url
 
     aweme_id = _extract_aweme_id(full_url)
+    errors = []
 
-    # Fetch video metadata from Douyin API
-    aweme = _fetch_video_info(aweme_id)
-    video_url = _find_video_url(aweme)
+    # Strategy 1: Direct Douyin API with a_bogus signing
+    try:
+        aweme = _fetch_video_info(aweme_id)
+        video_url = _find_video_url(aweme)
 
-    # Download
-    output_dir = Path(tempfile.mkdtemp())
-    output_path = output_dir / f"douyin_{aweme_id}.mp4"
+        output_dir = Path(tempfile.mkdtemp())
+        output_path = output_dir / f"douyin_{aweme_id}.mp4"
 
-    dl_req = Request(video_url, headers={
-        "User-Agent": MOBILE_UA,
-        "Referer": "https://www.douyin.com/",
-    })
-    with urlopen(dl_req, timeout=120) as f:
-        output_path.write_bytes(f.read())
+        dl_req = Request(video_url, headers={
+            "User-Agent": MOBILE_UA, "Referer": "https://www.douyin.com/",
+        })
+        with urlopen(dl_req, timeout=120) as f:
+            output_path.write_bytes(f.read())
 
-    size = output_path.stat().st_size
-    if size < 10000:
+        if output_path.stat().st_size >= 10000:
+            title = aweme.get("desc") or aweme.get("share_info", {}).get("share_title") or ""
+            return {
+                "video_id": aweme_id, "title": title,
+                "description": aweme.get("desc", ""),
+                "duration": int(aweme.get("duration", 0)) // 1000,
+                "file_path": str(output_path), "output_dir": str(output_dir),
+            }
         output_path.unlink()
-        raise RuntimeError("下载的视频文件过小，可能失败")
+        errors.append("API: 下载文件过小")
+    except Exception as e:
+        errors.append(f"API: {e}")
 
-    title = aweme.get("desc") or aweme.get("share_info", {}).get("share_title") or ""
-    duration = int(aweme.get("duration", 0)) // 1000
+    # Strategy 2: yt-dlp
+    try:
+        return _download_via_ytdlp(full_url, aweme_id)
+    except Exception as e:
+        errors.append(f"yt-dlp: {e}")
 
-    return {
-        "video_id": aweme_id,
-        "title": title,
-        "description": aweme.get("desc", ""),
-        "duration": duration,
-        "file_path": str(output_path),
-        "output_dir": str(output_dir),
-    }
+    # Strategy 3: Local API service (if running)
+    try:
+        result = _download_via_api_service(aweme_id)
+        if result:
+            return result
+    except Exception as e:
+        errors.append(f"API service: {e}")
+
+    raise RuntimeError(
+        "所有下载策略均失败。\n" + "\n".join(errors) +
+        "\n\n提示：如果是云端部署，请设置 DOUYIN_COOKIE 环境变量。"
+    )
