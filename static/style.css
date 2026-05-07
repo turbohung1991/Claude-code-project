@@ -611,15 +611,21 @@ body {
     font-weight:600;
     text-decoration:none;
     transition:all 0.3s;
-    border:2px solid transparent;
+    border:2px solid rgba(255,255,255,0.18);
+    color:#d8d4e8;
+    box-shadow: 0 0 14px rgba(255,255,255,0.06), 0 0 2px rgba(255,255,255,0.08);
 }
-.subtitle-nav a:hover, .subtitle-nav span.current {
-    border-color:rgba(255,255,255,0.4);
-    box-shadow: 0 0 20px rgba(255,255,255,0.12), 0 0 0 4px rgba(255,255,255,0.06);
+.subtitle-nav a:hover {
+    border-color:rgba(255,255,255,0.55);
+    color:#fff;
+    box-shadow: 0 0 24px rgba(255,255,255,0.18), 0 0 8px rgba(255,255,255,0.10);
+    transform: translateY(-1px);
 }
-.subtitle-nav a.douyin-link { color:#ff6b9d; }
-.subtitle-nav a.convert-link { color:#4ecdc4; }
-.subtitle-nav a.bg-link { color:#ffa502; }
+.subtitle-nav span.current {
+    border-color:rgba(255,255,255,0.5);
+    color:#fff;
+    box-shadow: 0 0 22px rgba(255,255,255,0.16), 0 0 6px rgba(255,255,255,0.10);
+}
 
 /* Convert anchor pills as toggle buttons */
 .convert-toggles { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom:24px; position:sticky; top:12px; z-index:10; }
