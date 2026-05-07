@@ -55,10 +55,18 @@ def handle_douyin_download(url, preset, progress=gr.Progress()):
     try:
         progress(0.1, desc="正在获取视频信息...")
         info = download_video(url.strip(), cookie_file=None)
-        progress(0.6, desc="正在语音识别字幕...")
-        subtitle_text = extract_subtitles(info["file_path"], preset=preset)
+
+        # API captions from video metadata (fast, no extra processing)
+        if info.get("captions"):
+            subtitle_text = info["captions"]
+            source = "API元数据"
+        else:
+            progress(0.6, desc="正在语音识别字幕...")
+            subtitle_text = extract_subtitles(info["file_path"], preset=preset)
+            source = "语音识别"
+
         progress(1.0, desc="完成")
-        summary = f"下载成功\n标题: {info['title']}\n时长: {int(info['duration'])}秒\n字幕: {len(subtitle_text.splitlines())} 行"
+        summary = f"下载成功\n标题: {info['title']}\n时长: {int(info['duration'])}秒\n字幕来源: {source}\n字幕: {len(subtitle_text.splitlines())} 行"
         return info["file_path"], subtitle_text, summary, info["file_path"]
     except Exception as e:
         import traceback
