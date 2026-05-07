@@ -330,28 +330,34 @@ function showAIReady(data) {
 function exportAnalysisPDF() {
     const raw = $('#aiContent').dataset.raw || '';
     const title = (videoData?.info?.desc || '分析报告').substring(0, 30);
-    const w = window.open('', '_blank');
-    w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + title + '</title>' +
+    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + title + '</title>' +
         '<style>body{font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:40px;color:#333;line-height:1.8}' +
         'h1{color:#6c5ce7}h2{color:#ff6b9d;border-bottom:1px solid #eee;padding-bottom:4px}h3{color:#4ecdc4}' +
         'strong{color:#333}li{margin:4px 0}@media print{body{padding:20px}}</style></head><body>' +
-        simpleMarkdown(raw) + '</body></html>');
-    w.document.close();
-    setTimeout(() => w.print(), 500);
+        simpleMarkdown(raw) + '</body></html>';
+    const blob = new Blob([html], {type: 'text/html'});
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, '_blank');
+    if (!w) {
+        // Popup blocked — download as file instead
+        const a = document.createElement('a');
+        a.href = url; a.download = title + '.html'; a.click();
+        showToast('报告已下载，用浏览器打开后按 Ctrl+P 打印');
+    } else {
+        w.addEventListener('load', () => { w.print(); });
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 function exportAnalysisImage() {
-    import('https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js').then(mod => {
-        const el = $('#aiContent');
-        mod.default(el, { backgroundColor: '#1a1a24', scale: 2 }).then(canvas => {
-            canvas.toBlob(blob => {
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = 'AI分析报告.png'; a.click();
-                URL.revokeObjectURL(url);
-            });
-        });
-    }).catch(() => showToast('图片导出失败，请使用PDF导出'));
+    const raw = $('#aiContent').dataset.raw || '';
+    const title = (videoData?.info?.desc || '分析报告').substring(0, 30);
+    const blob = new Blob([raw], {type: 'text/markdown'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = title + '分析报告.md'; a.click();
+    URL.revokeObjectURL(url);
+    showToast('Markdown 报告已下载');
 }
 
 function finishProcess() {
