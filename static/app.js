@@ -35,12 +35,15 @@ urlInput.addEventListener('keydown', (e) => {
 btnPaste.addEventListener('click', async () => {
     try {
         const text = await navigator.clipboard.readText();
-        urlInput.value = text;
-        parseUrl();
-    } catch {
-        showToast('无法访问剪贴板，请手动粘贴');
-    }
-});
+        if (text && text.trim()) {
+            urlInput.value = text.trim();
+            parseUrl();
+            return;
+        }
+    } catch {}
+    // Fallback: focus input so user can Ctrl+V directly
+    urlInput.focus();
+    showToast('请使用 Ctrl+V / Cmd+V 粘贴链接');
 
 btnClear.addEventListener('click', () => {
     urlInput.value = '';
