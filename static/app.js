@@ -331,11 +331,11 @@ function exportAnalysisPDF() {
     const raw = $('#aiContent').dataset.raw || '';
     const title = (videoData?.info?.desc || '分析报告').substring(0, 30);
     const w = window.open('', '_blank');
-    w.document.write(\`<!DOCTYPE html><html><head><meta charset=\"UTF-8\"><title>\${title}</title>
-<style>body{font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:40px;color:#333;line-height:1.8}
-h1{color:#6c5ce7}h2{color:#ff6b9d;border-bottom:1px solid #eee;padding-bottom:4px}h3{color:#4ecdc4}
-strong{color:#333}li{margin:4px 0}@media print{body{padding:20px}}</style></head><body>
-\${simpleMarkdown(raw)}</body></html>\`);
+    w.document.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><title>' + title + '</title>' +
+        '<style>body{font-family:-apple-system,sans-serif;max-width:800px;margin:0 auto;padding:40px;color:#333;line-height:1.8}' +
+        'h1{color:#6c5ce7}h2{color:#ff6b9d;border-bottom:1px solid #eee;padding-bottom:4px}h3{color:#4ecdc4}' +
+        'strong{color:#333}li{margin:4px 0}@media print{body{padding:20px}}</style></head><body>' +
+        simpleMarkdown(raw) + '</body></html>');
     w.document.close();
     setTimeout(() => w.print(), 500);
 }
