@@ -1,34 +1,67 @@
 """Douyin video downloader.
 
-Uses the Douyin_TikTok_Download_API service as the primary method.
-Falls back to Playwright browser automation.
+Calls Douyin API directly with a_bogus signing. No external service required.
 """
 
-import re
-import os
 import json
+import re
 import tempfile
 from pathlib import Path
 from urllib.request import Request, urlopen
-from urllib.parse import urlencode, urlparse
+from urllib.parse import urlencode, quote
 
-USER_AGENT = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+from converters.abogus import ABogus
+
+DOUYIN_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.212 Safari/537.36"
 )
 MOBILE_UA = (
     "Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) "
     "AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1"
 )
 
-# API service URL (runs alongside Gradio)
-DOUYIN_API_BASE = "http://127.0.0.1:80/api"
+POST_DETAIL_URL = "https://www.douyin.com/aweme/v1/web/aweme/detail/"
 
 SHORT_LINK_RE = re.compile(r"https?://v\.douyin\.com/[\w\-_]+/?")
 VIDEO_ID_RE = re.compile(r"douyin\.com/(?:video|note)/(\d+)")
 URL_EXTRACT_RE = re.compile(
     r"https?://(?:v\.douyin\.com/[\w\-_]+/?|(?:www\.)?douyin\.com/(?:video|note)/\d+)"
 )
+
+# Base params Douyin expects — mirrors BaseRequestModel from the API project
+BASE_PARAMS = {
+    "device_platform": "webapp",
+    "aid": "6383",
+    "channel": "channel_pc_web",
+    "pc_client_type": "1",
+    "version_code": "290100",
+    "version_name": "29.1.0",
+    "cookie_enabled": "true",
+    "screen_width": "1920",
+    "screen_height": "1080",
+    "browser_language": "zh-CN",
+    "browser_platform": "Win32",
+    "browser_name": "Chrome",
+    "browser_version": "130.0.0.0",
+    "browser_online": "true",
+    "engine_name": "Blink",
+    "engine_version": "130.0.0.0",
+    "os_name": "Windows",
+    "os_version": "10",
+    "cpu_core_num": "12",
+    "device_memory": "8",
+    "platform": "PC",
+    "downlink": "10",
+    "effective_type": "4g",
+    "from_user_page": "1",
+    "locate_query": "false",
+    "need_time_list": "1",
+    "pc_libra_divert": "Windows",
+    "publish_video_strategy_type": "2",
+    "round_trip_time": "0",
+    "show_live_replay_strategy": "1",
+}
 
 
 def _extract_url(text: str) -> str:
@@ -37,76 +70,113 @@ def _extract_url(text: str) -> str:
 
 
 def _extract_aweme_id(url: str) -> str:
-    """Extract aweme_id from a Douyin URL. Follows short links if needed."""
-    # If it's a full video URL, extract directly
     m = VIDEO_ID_RE.search(url)
     if m:
         return m.group(1)
 
-    # Short link - follow redirect to get video ID
-    req = Request(url, headers={"User-Agent": USER_AGENT})
+    # Short link — follow redirect
+    req = Request(url, headers={"User-Agent": DOUYIN_UA})
     resp = urlopen(req, timeout=15)
     final = resp.geturl()
     m = VIDEO_ID_RE.search(final)
     if m:
         return m.group(1)
-
     raise ValueError(f"无法提取视频 ID: {final}")
 
 
-def _download_via_api(aweme_id: str):
-    """Strategy A: Use Douyin_TikTok_Download_API service (handles a_bogus signing)."""
-    api_url = f"{DOUYIN_API_BASE}/douyin/web/fetch_one_video?aweme_id={aweme_id}"
+def _build_signed_url(aweme_id: str) -> str:
+    """Build the Douyin API URL with a_bogus signing."""
+    params = dict(BASE_PARAMS)
+    params["aweme_id"] = aweme_id
+    params["msToken"] = ""
 
-    try:
-        req = Request(api_url, headers={"User-Agent": USER_AGENT})
-        resp = urlopen(req, timeout=30)
-        data = json.loads(resp.read().decode())
-    except Exception:
-        return None
+    # Generate a_bogus
+    a_bogus = ABogus().get_value(params)
 
-    if data.get("code") != 200:
-        return None
+    # Encode — ABogus returns a quote()-ed value, so we re-encode the params
+    query = urlencode(params, safe="")
+    return f"{POST_DETAIL_URL}?{query}&a_bogus={quote(a_bogus, safe='')}"
 
-    aweme = data.get("data", {}).get("aweme_detail", {})
+
+def _fetch_video_info(aweme_id: str) -> dict:
+    """Call Douyin API directly with a_bogus signing to get video metadata."""
+    url = _build_signed_url(aweme_id)
+
+    req = Request(url, headers={
+        "User-Agent": DOUYIN_UA,
+        "Referer": "https://www.douyin.com/",
+        "Accept-Language": "zh-CN,zh;q=0.9",
+    })
+
+    resp = urlopen(req, timeout=30)
+    data = json.loads(resp.read().decode())
+
+    if data.get("status_code") != 0:
+        raise RuntimeError(f"Douyin API 返回错误: {data.get('status_msg', 'unknown')}")
+
+    aweme = data.get("aweme_detail", {})
     if not aweme:
-        return None
+        raise RuntimeError("无法获取视频信息: aweme_detail 为空")
+    return aweme
 
-    # Find the best video download URL (no watermark preferred)
-    video_url = ""
+
+def _find_video_url(aweme: dict) -> str:
+    """Extract the best downloadable video URL from an aweme detail dict."""
+    video = aweme.get("video", {})
     for key in ("download_addr", "play_addr", "play_addr_h264"):
-        addr = aweme.get("video", {}).get(key, {})
-        url_list = addr.get("url_list", []) if isinstance(addr, dict) else []
+        addr = video.get(key, {})
+        url_list = addr.get("url_list", [])
         if url_list:
-            video_url = url_list[0]
-            break
+            return url_list[0]
 
-    if not video_url:
-        # Try alternative fields
-        video_url = (
-            aweme.get("video", {}).get("play_addr_265", {}).get("url_list", [""])[0]
-            or aweme.get("video", {}).get("download_addr", {}).get("url_list", [""])[0]
-        )
+    # Last resort
+    for key in ("play_addr_265",):
+        addr = video.get(key, {})
+        url_list = addr.get("url_list", [])
+        if url_list:
+            return url_list[0]
 
-    if not video_url:
-        return None
+    raise RuntimeError("未找到可下载的视频地址")
 
-    # Download the video
+
+def download_video(url: str, cookie_file: str = None) -> dict:
+    """Download a Douyin video.
+
+    Returns dict with video_id, title, file_path, output_dir, duration.
+    Works standalone — no external API service needed.
+    """
+    url = _extract_url(url)
+
+    # Resolve short link
+    if SHORT_LINK_RE.search(url):
+        req = Request(url, headers={"User-Agent": DOUYIN_UA})
+        full_url = urlopen(req, timeout=15).geturl()
+    else:
+        full_url = url
+
+    aweme_id = _extract_aweme_id(full_url)
+
+    # Fetch video metadata from Douyin API
+    aweme = _fetch_video_info(aweme_id)
+    video_url = _find_video_url(aweme)
+
+    # Download
     output_dir = Path(tempfile.mkdtemp())
     output_path = output_dir / f"douyin_{aweme_id}.mp4"
 
-    dl_req = Request(video_url, headers={"User-Agent": MOBILE_UA, "Referer": "https://www.douyin.com/"})
+    dl_req = Request(video_url, headers={
+        "User-Agent": MOBILE_UA,
+        "Referer": "https://www.douyin.com/",
+    })
     with urlopen(dl_req, timeout=120) as f:
         output_path.write_bytes(f.read())
 
     size = output_path.stat().st_size
     if size < 10000:
         output_path.unlink()
-        return None
+        raise RuntimeError("下载的视频文件过小，可能失败")
 
-    title = aweme.get("desc") or ""
-    if not title:
-        title = aweme.get("share_info", {}).get("share_title") or ""
+    title = aweme.get("desc") or aweme.get("share_info", {}).get("share_title") or ""
     duration = int(aweme.get("duration", 0)) // 1000
 
     return {
@@ -117,110 +187,3 @@ def _download_via_api(aweme_id: str):
         "file_path": str(output_path),
         "output_dir": str(output_dir),
     }
-
-
-def _download_via_playwright(page_url: str):
-    """Strategy B: Playwright browser automation fallback."""
-    import shutil
-
-    try:
-        from playwright.sync_api import sync_playwright
-    except ImportError:
-        return None
-
-    aweme_id = _extract_aweme_id(page_url)
-    output_dir = Path(tempfile.mkdtemp())
-    output_path = output_dir / f"douyin_{aweme_id}.mp4"
-
-    try:
-        with sync_playwright() as pw:
-            browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
-            context = browser.new_context(
-                user_agent=MOBILE_UA,
-                viewport={"width": 390, "height": 844},
-            )
-            page = context.new_page()
-            page.goto(page_url, wait_until="networkidle", timeout=30000)
-            page.wait_for_timeout(3000)
-
-            video_src = page.evaluate("""() => {
-                const v = document.querySelector('video');
-                if (!v) return '';
-                const src = v.src || v.getAttribute('src') || '';
-                const sources = v.querySelectorAll('source');
-                if (!src && sources.length > 0) {
-                    const s = sources[0].getAttribute('src');
-                    return s || '';
-                }
-                return src;
-            }""")
-
-            if not video_src:
-                browser.close()
-                return None
-
-            # Follow playwm redirect
-            page.goto(video_src, wait_until="load", timeout=15000)
-            cdn_url = page.url
-
-            if cdn_url == video_src:
-                browser.close()
-                return None
-
-            dl_resp = context.request.get(cdn_url)
-            if dl_resp.status in (200, 206):
-                output_path.write_bytes(dl_resp.body())
-
-            browser.close()
-    except Exception:
-        return None
-
-    if output_path.stat().st_size < 10000:
-        output_path.unlink()
-        return None
-
-    return {
-        "video_id": aweme_id,
-        "title": "",
-        "description": "",
-        "duration": 0,
-        "file_path": str(output_path),
-        "output_dir": str(output_dir),
-    }
-
-
-def download_video(url: str, cookie_file: str = None) -> dict:
-    """Download a Douyin video. Returns dict with video_id, title, file_path, etc."""
-    url = _extract_url(url)
-
-    # For short links, resolve to full URL first
-    if SHORT_LINK_RE.search(url):
-        req = Request(url, headers={"User-Agent": USER_AGENT})
-        full_url = urlopen(req, timeout=15).geturl()
-    else:
-        full_url = url
-
-    aweme_id = _extract_aweme_id(full_url)
-    errors = []
-
-    # Strategy 1: API service (fast, handles a_bogus signing natively)
-    try:
-        result = _download_via_api(aweme_id)
-        if result and result.get("file_path"):
-            return result
-    except Exception as e:
-        errors.append(f"API: {e}")
-
-    # Strategy 2: Playwright (slower, but works as fallback)
-    try:
-        result = _download_via_playwright(full_url)
-        if result and result.get("file_path"):
-            return result
-    except Exception as e:
-        errors.append(f"Playwright: {e}")
-
-    raise RuntimeError(
-        "下载失败。\n"
-        + "\n".join(errors)
-        + "\n\n提示：确保 Douyin API 服务已启动 (端口 8000)"
-    )
