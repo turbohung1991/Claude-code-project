@@ -325,6 +325,56 @@ def serve_video(filename):
     return jsonify({"error": "文件不存在"}), 404
 
 
+@app.route("/api/videos")
+def list_videos():
+    videos = []
+    for f in sorted(os.listdir(DOWNLOAD_DIR), reverse=True):
+        if f.endswith(".mp4"):
+            path = os.path.join(DOWNLOAD_DIR, f)
+            videos.append({
+                "filename": f,
+                "size": os.path.getsize(path),
+                "size_display": f"{os.path.getsize(path)/1024/1024:.1f}MB",
+                "url": f"/api/download/{quote(f, safe='')}",
+            })
+    return jsonify({"videos": videos})
+
+
+@app.route("/api/analyses")
+def list_analyses():
+    analyses = []
+    for f in sorted(os.listdir(DOWNLOAD_DIR), reverse=True):
+        if f.endswith("_analysis.json"):
+            path = os.path.join(DOWNLOAD_DIR, f)
+            try:
+                with open(path, "r", encoding="utf-8") as fp:
+                    data = json.load(fp)
+            except Exception:
+                data = {}
+            analyses.append({
+                "file": f,
+                "filename": data.get("filename", f.replace("_analysis.json", "")),
+                "desc": data.get("desc", "")[:80],
+                "author": data.get("author", "未知"),
+                "duration": data.get("duration", 0),
+                "model": data.get("model", ""),
+                "created_at": data.get("created_at", 0),
+                "preview": data.get("analysis", "")[:200],
+                "video_url": f"/api/download/{quote(f.replace('_analysis.json', '.mp4'), safe='')}",
+            })
+    return jsonify({"analyses": analyses})
+
+
+@app.route("/api/analyses/<filename>")
+def get_analysis(filename):
+    path = os.path.join(DOWNLOAD_DIR, filename)
+    if not filename.endswith("_analysis.json") or not os.path.exists(path):
+        return jsonify({"error": "报告不存在"}), 404
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+    return jsonify(data)
+
+
 def _save_analysis(filename, video_data, analysis):
     report_path = os.path.join(DOWNLOAD_DIR, filename + "_analysis.json")
     report = {
