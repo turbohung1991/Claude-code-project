@@ -73,26 +73,15 @@ def _resolve_short_link(url: str) -> str:
 
 
 def _get_video_info_playwright(video_id: str) -> dict:
-    """Fetch video metadata using Playwright browser automation.
-
-    The browser visits the video page and makes the Douyin API call itself,
-    handling all a_bogus signing automatically. We intercept the response.
-    """
+    """Fetch video metadata using Playwright browser automation."""
     from playwright.sync_api import sync_playwright
+    import time
 
     with sync_playwright() as pw:
-        # Try headless-shell first (newer Playwright), fall back to regular chromium
-        try:
-            browser = pw.chromium.launch(
-                headless=True,
-                args=["--no-sandbox", "--disable-setuid-sandbox"],
-            )
-        except Exception:
-            browser = pw.chromium.launch(
-                channel="chromium",
-                headless=True,
-                args=["--no-sandbox", "--disable-setuid-sandbox"],
-            )
+        browser = pw.chromium.launch(
+            headless=True,
+            args=["--no-sandbox", "--disable-setuid-sandbox"],
+        )
         context = browser.new_context(
             user_agent=DESKTOP_UA,
             viewport={"width": 1440, "height": 900},
@@ -115,60 +104,68 @@ def _get_video_info_playwright(video_id: str) -> dict:
                     detail = body.get("aweme_detail", {})
                     if detail.get("aweme_id"):
                         video_data["detail"] = detail
+                        print(f"[douyin] API intercepted: aweme_id={detail.get('aweme_id')}")
                 except Exception:
                     pass
 
         page.on("response", on_response)
 
-        # Visit homepage first to set cookies
-        page.goto("https://www.douyin.com/", wait_until="domcontentloaded", timeout=20000)
-        page.wait_for_timeout(2000)
+        # Go directly to video page (skip homepage — saves time)
+        try:
+            page.goto(
+                f"https://www.douyin.com/video/{video_id}",
+                wait_until="domcontentloaded",
+                timeout=30000,
+            )
+        except Exception as e:
+            print(f"[douyin] Page load warning: {e}")
 
-        # Visit video page
-        page.goto(
-            f"https://www.douyin.com/video/{video_id}",
-            wait_until="domcontentloaded",
-            timeout=20000,
-        )
-        page.wait_for_timeout(5000)
+        # Poll for API data up to 15 seconds
+        deadline = time.time() + 15
+        while time.time() < deadline and not video_data:
+            page.wait_for_timeout(500)
 
-        # RENDER_DATA fallback
+        # If still no data, try RENDER_DATA in page source
         if not video_data:
-            html = page.content()
-            match = RENDER_DATA_RE.search(html)
-            if match:
-                try:
+            try:
+                html = page.content()
+                match = RENDER_DATA_RE.search(html)
+                if match:
                     from urllib.parse import unquote
                     decoded = unquote(match.group(1))
                     data = json.loads(decoded)
-                    video_data["detail"] = _extract_from_render_data(data)
-                except Exception:
-                    pass
+                    detail = _extract_from_render_data(data)
+                    if detail:
+                        video_data["detail"] = detail
+                        print("[douyin] Got data from RENDER_DATA")
+            except Exception as e:
+                print(f"[douyin] RENDER_DATA fallback failed: {e}")
 
-        # JS fallback
+        # JS final fallback
         if not video_data:
             try:
-                video_data["detail"] = page.evaluate("""() => {
+                detail = page.evaluate("""() => {
                     try {
-                        const app = document.querySelector('#RENDER_DATA');
-                        if (app) {
-                            const d = JSON.parse(decodeURIComponent(app.textContent));
-                            function find(obj, depth) {
-                                if (depth > 10 || !obj || typeof obj !== 'object') return null;
-                                if (obj.video && (obj.video.play_addr || obj.video.playAddr)) return obj;
-                                for (const k in obj) {
-                                    const r = find(obj[k], depth + 1);
-                                    if (r) return r;
-                                }
-                                return null;
+                        const el = document.querySelector('#RENDER_DATA');
+                        if (!el) return null;
+                        const d = JSON.parse(decodeURIComponent(el.textContent));
+                        function find(obj, depth) {
+                            if (depth > 10 || !obj || typeof obj !== 'object') return null;
+                            if (obj.video && (obj.video.play_addr || obj.video.playAddr)) return obj;
+                            for (const k in obj) {
+                                const r = find(obj[k], depth + 1);
+                                if (r) return r;
                             }
-                            return find(d, 0);
+                            return null;
                         }
-                    } catch(e) {}
-                    return null;
+                        return find(d, 0);
+                    } catch(e) { return null; }
                 }""")
-            except Exception:
-                pass
+                if detail:
+                    video_data["detail"] = detail
+                    print("[douyin] Got data from JS fallback")
+            except Exception as e:
+                print(f"[douyin] JS fallback failed: {e}")
 
         context.close()
         browser.close()
@@ -176,7 +173,11 @@ def _get_video_info_playwright(video_id: str) -> dict:
     aweme = video_data.get("detail")
     if not aweme:
         raise RuntimeError(
-            "无法获取视频信息。Playwright 未能拦截到 API 响应。"
+            "无法获取视频信息。可能原因:\n"
+            "1. 视频不存在或已删除\n"
+            "2. 抖音反爬拦截了请求\n"
+            "3. 网络连接超时\n"
+            "请检查链接是否有效，或稍后重试。"
         )
     return aweme
 
