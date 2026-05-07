@@ -470,12 +470,13 @@ async function loadHistoryAnalyses() {
             list.innerHTML = data.analyses.map(a => {
                 const dt = a.created_at ? new Date(a.created_at * 1000).toLocaleDateString('zh-CN') : '未知';
                 return `
-                <div class="history-item analysis-item" style="cursor:pointer;" onclick="viewAnalysis('${a.file}')">
-                    <div style="flex:1;min-width:0;">
+                <div class="history-item analysis-item" style="cursor:pointer;">
+                    <div style="flex:1;min-width:0;" onclick="viewAnalysis('${a.file}')">
                         <div class="h-name">${a.desc || a.filename}</div>
                         <div style="font-size:0.78rem;color:var(--text-dim);">👤 ${a.author} · ${dt} · ${a.model}</div>
                     </div>
-                    <span class="analysis-preview-tag">查看 →</span>
+                    <span class="analysis-preview-tag" onclick="viewAnalysis('${a.file}')">查看 →</span>
+                    <button class="btn btn-sm" onclick="event.stopPropagation();deleteAnalysis('${a.file}', this)" style="color:#ff6b6b;margin-left:8px;">✕</button>
                 </div>`;
             }).join('');
         }
@@ -520,6 +521,22 @@ async function viewAnalysis(file) {
 
 function closeHistory() {
     historyModal.classList.add('hidden');
+}
+
+async function deleteAnalysis(filename, btn) {
+    if (!confirm(`确定删除这份分析报告吗？`)) return;
+    try {
+        const resp = await fetch('/api/analyses/' + encodeURIComponent(filename), { method: 'DELETE' });
+        const data = await resp.json();
+        if (data.success) {
+            btn.closest('.history-item').remove();
+            showToast('已删除');
+        } else {
+            showToast('删除失败: ' + (data.error || '未知错误'));
+        }
+    } catch(e) {
+        showToast('删除失败: ' + e.message);
+    }
 }
 
 async function deleteVideo(filename, btn) {

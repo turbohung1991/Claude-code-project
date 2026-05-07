@@ -354,6 +354,15 @@ def delete_video(filename):
     return jsonify({"success": True})
 
 
+@app.route("/api/analyses/<filename>", methods=["DELETE"])
+def delete_analysis(filename):
+    path = os.path.join(DOWNLOAD_DIR, filename)
+    if not os.path.exists(path):
+        return jsonify({"error": "文件不存在"}), 404
+    os.remove(path)
+    return jsonify({"success": True})
+
+
 @app.route("/api/analyses")
 def list_analyses():
     analyses = []
