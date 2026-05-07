@@ -51,7 +51,7 @@ def handle_bg_remove(image_file, model_label, alpha_matting, bg_color, feather):
 
 def handle_douyin_download(url, preset, progress=gr.Progress()):
     if not url or not url.strip():
-        return None, "", "请输入抖音链接", None
+        return None, "", "请输入抖音链接", None, {}
     try:
         progress(0.1, desc="正在获取视频信息...")
         info = download_video(url.strip(), cookie_file=None)
@@ -67,20 +67,27 @@ def handle_douyin_download(url, preset, progress=gr.Progress()):
 
         progress(1.0, desc="完成")
         summary = f"下载成功\n标题: {info['title']}\n时长: {int(info['duration'])}秒\n字幕来源: {source}\n字幕: {len(subtitle_text.splitlines())} 行"
-        return info["file_path"], subtitle_text, summary, info["file_path"]
+
+        # Pack metadata for content analysis (serializable subset)
+        meta = {
+            "desc": info.get("description", ""),
+            "title": info.get("title", ""),
+            "duration": info.get("duration", 0) * 1000,
+        }
+        return info["file_path"], subtitle_text, summary, info["file_path"], meta
     except Exception as e:
         import traceback
         tb = traceback.format_exc()
         print(f"[ERROR] handle_douyin_download:\n{tb}", flush=True)
-        return None, "", f"错误: {str(e)}\n\n{tb[-500:]}", None
+        return None, "", f"错误: {str(e)}\n\n{tb[-500:]}", None, {}
 
 
-def handle_content_analysis(subtitle_text, model_name):
+def handle_content_analysis(subtitle_text, model_name, video_meta):
     if not subtitle_text or not subtitle_text.strip():
-        return "请先从「抖音下载」标签页提取字幕文本"
+        return '<div style="color:#ff6b6b; padding:16px;">请先从「抖音下载」标签页提取字幕文本</div>'
     if not model_name:
-        return "请选择分析模型"
-    return analyze_content(subtitle_text, model=model_name)
+        return '<div style="color:#ff6b6b; padding:16px;">请选择分析模型</div>'
+    return analyze_content(subtitle_text, model=model_name, video_meta=video_meta)
 
 
 def get_analysis_models():
@@ -92,11 +99,12 @@ def get_analysis_models():
 
 # ── CSS ───────────────────────────────────────────────────
 
-PREMIUM_CSS = """
+DARK_CSS = """
 footer {display: none !important;}
 
 body, .gradio-container {
-    background: #f8f9fb !important;
+    background: #0f0f13 !important;
+    color: #e0e0e0 !important;
 }
 
 .gradio-container {
@@ -108,10 +116,10 @@ body, .gradio-container {
 /* Tabs */
 .tabs { margin-top: 16px !important; border: none !important; background: transparent !important; }
 .tab-nav {
-    background: #fff !important;
+    background: #1a1a24 !important;
     border-radius: 14px !important;
     padding: 6px !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 4px 12px rgba(0,0,0,0.04) !important;
+    border: 1px solid #2a2a3a !important;
     gap: 2px !important;
     flex-wrap: wrap !important;
 }
@@ -120,74 +128,62 @@ body, .gradio-container {
     padding: 10px 16px !important;
     font-size: 13.5px !important;
     font-weight: 500 !important;
-    color: #5f6b7a !important;
+    color: #888 !important;
     background: transparent !important;
     border: none !important;
     transition: all 0.2s ease !important;
     margin: 0 !important;
 }
-.tab-nav button:hover { background: #f2f4f7 !important; color: #2d3748 !important; }
+.tab-nav button:hover { background: #222 !important; color: #e0e0e0 !important; }
 .tab-nav button.selected {
-    background: #1a1a2e !important;
+    background: #6c5ce7 !important;
     color: #fff !important;
-    box-shadow: 0 2px 8px rgba(26,26,46,0.25) !important;
 }
 
 /* Tab content */
 .tabitem {
-    background: #fff !important;
+    background: #1a1a24 !important;
     border-radius: 14px !important;
     padding: 6px !important;
     margin-top: 8px !important;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.03), 0 8px 24px rgba(0,0,0,0.04) !important;
-}
-
-/* Section cards inside tabs */
-.section-card {
-    background: #fafbfc !important;
-    border: 1px solid #edf0f4 !important;
-    border-radius: 12px !important;
-    padding: 20px !important;
-    margin-bottom: 14px !important;
+    border: 1px solid #2a2a3a !important;
 }
 
 /* Inputs */
 input, textarea, select, .file-preview {
     border-radius: 10px !important;
-    border: 1.5px solid #e8ecf1 !important;
-    background: #fafbfc !important;
-    transition: border-color 0.2s ease, box-shadow 0.2s ease !important;
+    border: 1px solid #2a2a3a !important;
+    background: #111119 !important;
+    color: #e0e0e0 !important;
     font-size: 14px !important;
 }
 input:focus, textarea:focus, select:focus {
     border-color: #6c5ce7 !important;
-    box-shadow: 0 0 0 3px rgba(108,92,231,0.08) !important;
+    box-shadow: 0 0 0 3px rgba(108,92,231,0.15) !important;
     outline: none !important;
 }
+::placeholder { color: #555 !important; }
 
 label, .label-text {
     font-size: 13px !important;
     font-weight: 600 !important;
-    color: #3a3f51 !important;
+    color: #b0b0b0 !important;
 }
 
 /* Primary button */
 button.primary, .primary {
-    background: linear-gradient(135deg, #1a1a2e 0%, #2d3561 100%) !important;
+    background: #6c5ce7 !important;
     border: none !important;
     border-radius: 10px !important;
     padding: 10px 24px !important;
     font-weight: 600 !important;
     font-size: 14px !important;
     color: #fff !important;
-    letter-spacing: 0.02em !important;
-    transition: all 0.25s ease !important;
-    box-shadow: 0 2px 8px rgba(26,26,46,0.2) !important;
+    transition: all 0.2s ease !important;
 }
 button.primary:hover {
+    background: #7d6ff0 !important;
     transform: translateY(-1px) !important;
-    box-shadow: 0 6px 20px rgba(26,26,46,0.3) !important;
-    background: linear-gradient(135deg, #2d3561 0%, #434e8a 100%) !important;
 }
 
 button.sm {
@@ -195,16 +191,16 @@ button.sm {
     font-size: 12.5px !important;
     font-weight: 500 !important;
     padding: 6px 14px !important;
-    background: #f2f4f7 !important;
-    border: 1px solid #e2e6ed !important;
-    color: #5f6b7a !important;
+    background: #2a2a3a !important;
+    border: 1px solid #2a2a3a !important;
+    color: #888 !important;
 }
-button.sm:hover { background: #e8ecf1 !important; color: #2d3748 !important; }
+button.sm:hover { background: #333 !important; color: #e0e0e0 !important; }
 
 .file-preview {
     border-radius: 10px !important;
-    border: 1.5px dashed #d8dde6 !important;
-    background: #fafbfc !important;
+    border: 1.5px dashed #2a2a3a !important;
+    background: #111119 !important;
 }
 
 .slider input[type=range] { accent-color: #6c5ce7 !important; }
@@ -214,79 +210,62 @@ button.sm:hover { background: #e8ecf1 !important; color: #2d3748 !important; }
 
 textarea[data-testid="textbox"] {
     scrollbar-width: thin !important;
-    scrollbar-color: #c8cdd6 #f2f4f7 !important;
+    scrollbar-color: #2a2a3a #111119 !important;
 }
 textarea[data-testid="textbox"]::-webkit-scrollbar { width: 6px !important; }
-textarea[data-testid="textbox"]::-webkit-scrollbar-track { background: #f2f4f7 !important; border-radius: 8px !important; }
-textarea[data-testid="textbox"]::-webkit-scrollbar-thumb { background: #c8cdd6 !important; border-radius: 8px !important; }
-textarea[data-testid="textbox"]::-webkit-scrollbar-thumb:hover { background: #a0a8b4 !important; }
+textarea[data-testid="textbox"]::-webkit-scrollbar-track { background: #111119 !important; border-radius: 8px !important; }
+textarea[data-testid="textbox"]::-webkit-scrollbar-thumb { background: #2a2a3a !important; border-radius: 8px !important; }
+textarea[data-testid="textbox"]::-webkit-scrollbar-thumb:hover { background: #444 !important; }
 
 .credits-info textarea {
     font-size: 12px !important;
-    color: #6b7280 !important;
+    color: #888 !important;
     padding: 4px 10px !important;
     min-height: 28px !important;
-    background: #f8f9fb !important;
+    background: #111119 !important;
     border-radius: 6px !important;
-    border: 1px solid #e8ecf1 !important;
+    border: 1px solid #2a2a3a !important;
 }
 
 /* Convert-type radio — pill selector */
-.convert-radio {
-    margin-bottom: 20px !important;
-}
-.convert-radio .wrap {
-    display: flex !important;
-    gap: 8px !important;
-    flex-wrap: wrap !important;
-}
+.convert-radio { margin-bottom: 20px !important; }
+.convert-radio .wrap { display: flex !important; gap: 8px !important; flex-wrap: wrap !important; }
 .convert-radio label {
     display: inline-flex !important;
     align-items: center !important;
     padding: 10px 20px !important;
     border-radius: 10px !important;
-    border: 1.5px solid #e2e6ed !important;
-    background: #fff !important;
+    border: 1.5px solid #2a2a3a !important;
+    background: #1a1a24 !important;
     font-size: 14px !important;
     font-weight: 500 !important;
-    color: #5f6b7a !important;
+    color: #888 !important;
     cursor: pointer !important;
     transition: all 0.2s ease !important;
 }
-.convert-radio label:hover {
-    border-color: #6c5ce7 !important;
-    background: #f8f7ff !important;
-}
+.convert-radio label:hover { border-color: #6c5ce7 !important; background: #222 !important; }
 .convert-radio label.selected {
-    background: #1a1a2e !important;
-    border-color: #1a1a2e !important;
+    background: #6c5ce7 !important;
+    border-color: #6c5ce7 !important;
     color: #fff !important;
-    box-shadow: 0 2px 8px rgba(26,26,46,0.25) !important;
 }
-.convert-radio input[type="radio"] {
-    display: none !important;
-}
+.convert-radio input[type="radio"] { display: none !important; }
 
-/* Section icon headers */
-.section-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    margin-right: 10px;
-    font-size: 16px;
-    flex-shrink: 0;
-}
+/* Dropdown options */
+.options-container { background: #1a1a24 !important; border: 1px solid #2a2a3a !important; }
+.options-container .item { color: #e0e0e0 !important; }
+.options-container .item:hover { background: #222 !important; }
 """
 
 HEADER_HTML = """
-<div style="text-align:center; padding:32px 0 20px 0;">
-    <h1 style="margin:0; font-size:2.1em; font-weight:700; color:#1a1a2e; letter-spacing:-0.02em;">
-        格式转换工具箱
+<div style="text-align:center; padding:32px 0 24px 0;">
+    <h1 style="margin:0; font-size:2.1rem; font-weight:700;
+               background: linear-gradient(135deg, #6c5ce7, #ff6b9d);
+               -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+               background-clip: text;">
+        Vibecoding
     </h1>
-    <p style="color:#98a0b0; margin:10px 0 0 0; font-size:0.95em; font-weight:400;">
+    <p style="color:#888; margin:8px 0 0 0; font-size:0.95rem;">
         格式转换 · 智能抠图 · 抖音下载 · 内容分析
     </p>
 </div>
@@ -298,14 +277,11 @@ HEADER_HTML = """
 
 with gr.Blocks(
     title="格式转换工具箱",
-    theme=gr.themes.Soft(
-        primary_hue="slate",
-        secondary_hue="slate",
-        neutral_hue="slate",
+    theme=gr.themes.Base(
         font=gr.themes.GoogleFont("Inter"),
         spacing_size="sm",
     ),
-    css=PREMIUM_CSS,
+    css=DARK_CSS,
 ) as app:
     gr.HTML(HEADER_HTML)
 
@@ -442,10 +418,12 @@ with gr.Blocks(
                     )
                     dy_video_dl = gr.File(label="下载视频文件", visible=False)
 
+            dy_meta = gr.State({})
+
             btn_7.click(
                 fn=handle_douyin_download,
                 inputs=[dy_url, dy_preset],
-                outputs=[dy_video, dy_subtitle_text, dy_status, dy_video_dl],
+                outputs=[dy_video, dy_subtitle_text, dy_status, dy_video_dl, dy_meta],
             )
 
         # ════════════════════════════════════════════════════
@@ -456,25 +434,25 @@ with gr.Blocks(
                 with gr.Column(scale=1, min_width=280):
                     ca_models = gr.Dropdown(
                         choices=AVAILABLE_MODELS, value=DEFAULT_MODEL,
-                        label="分析模型", info="DashScope AI 模型",
+                        label="分析模型", info="DeepSeek API (兼容 OpenAI SDK)",
                     )
                     ca_refresh_btn = gr.Button("刷新模型", size="sm")
                     ca_text = gr.Textbox(
-                        label="字幕文本", lines=18, max_lines=18,
-                        placeholder="粘贴字幕文本，或先在「抖音下载」页提取...",
+                        label="字幕文本", lines=16, max_lines=16,
+                        placeholder="粘贴字幕文本，或先在「抖音下载」页提取后自动填入...",
                         elem_classes=["subtitle-scroll"],
                     )
-                    btn_8 = gr.Button("分析内容策略", variant="primary")
+                    btn_8 = gr.Button("开始策略分析", variant="primary")
                 with gr.Column(scale=1, min_width=320):
                     ca_output = gr.HTML(value="""
-<div style="color:#98a0b0; text-align:center; padding:60px 20px; font-size:0.95em;">
+<div style="color:#888; text-align:center; padding:60px 20px; font-size:0.95em;">
 等待分析...
 </div>""")
 
             ca_refresh_btn.click(fn=get_analysis_models, inputs=[], outputs=[ca_models])
             btn_8.click(
                 fn=handle_content_analysis,
-                inputs=[ca_text, ca_models],
+                inputs=[ca_text, ca_models, dy_meta],
                 outputs=[ca_output],
             )
 

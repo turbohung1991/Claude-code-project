@@ -1,220 +1,212 @@
-"""Content analysis using DashScope API (Anthropic-compatible endpoint)."""
+"""Content strategy analysis — DeepSeek API via OpenAI SDK.
 
-import os
+Matches douyin-tool-clean/strategy.py approach:
+- 6-dimension structured analysis
+- Rich video metadata for context
+- MD → styled HTML output
+"""
+
 import json
-import re
-from urllib.request import Request, urlopen
-from urllib.error import URLError
+import os
+from openai import OpenAI
 
-
-DASHSCOPE_API_KEY = os.environ.get("ANTHROPIC_AUTH_TOKEN", "")
-DASHSCOPE_URL = os.environ.get("ANTHROPIC_BASE_URL", "https://coding.dashscope.aliyuncs.com/apps/anthropic") + "/v1/messages"
-DEFAULT_MODEL = os.environ.get("ANTHROPIC_MODEL", "qwen3.6-plus")
+DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY") or os.environ.get("OPENAI_API_KEY") or ""
+DEEPSEEK_BASE_URL = os.environ.get("DEEPSEEK_BASE_URL") or os.environ.get("OPENAI_BASE_URL") or "https://api.deepseek.com/v1"
+DEFAULT_MODEL = os.environ.get("ANTHROPIC_MODEL") or "deepseek-chat"
 
 AVAILABLE_MODELS = [DEFAULT_MODEL]
 
-# Section accent colors
-SECTION_COLORS = {
-    "主题": "#7c3aed", "类型": "#7c3aed",
-    "钩子": "#2563eb", "开头": "#2563eb",
-    "节奏": "#0891b2", "情绪": "#0891b2",
-    "互动": "#d97706", "引导": "#d97706",
-    "爆款": "#dc2626", "要素": "#dc2626",
-    "优化": "#059669", "建议": "#059669", "改进": "#059669",
-}
+ANALYSIS_PROMPT = """你是一位顶尖的抖音内容策略分析师。请根据提供的视频信息，进行专业的策略分析。
+
+## 视频信息
+- 标题/描述: {desc}
+- 作者: {author}
+- 音乐: {music}
+- 话题标签: {hashtags}
+- 时长: {duration}秒
+- 清晰度: {resolution}
+- 字幕/文案内容: {subtitles}
+
+## 分析要求
+请从以下维度进行深度分析，输出结构化的策略报告：
+
+### 1. 内容定位
+- 赛道/领域分类
+- 目标受众画像
+- 内容核心价值点
+
+### 2. 爆款要素拆解
+- 黄金前3秒吸引力分析
+- 节奏把控与完播率设计
+- 情绪价值/信息价值/娱乐价值的配比
+- BGM选择策略
+
+### 3. 文案与话术
+- 标题钩子技巧
+- 正文/字幕的文案结构
+- 互动引导方式（点赞/评论/关注话术）
+
+### 4. 视觉呈现
+- 拍摄手法与机位
+- 剪辑节奏与转场
+- 滤镜/特效/贴纸运用
+
+### 5. 数据潜力评估
+- 预估受众共鸣度 (1-10)
+- 传播潜力评分 (1-10)
+- 商业化可行性 (1-10)
+
+### 6. 可复制策略
+- 如果要做同类内容，应该怎么执行？
+- 这个视频可以怎么迭代优化？
+- 有哪些可以直接用的技巧？
+
+请用中文输出，要有洞察、有数据、有可执行的建议。不要空泛。"""
 
 
-def _detect_section_color(header_text):
-    for keyword, color in SECTION_COLORS.items():
-        if keyword in header_text:
-            return color
-    return "#6b7280"
-
-
-def _md_to_html(md_text):
-    """Convert analysis markdown to styled HTML with highlighted sections."""
+def _md_to_html(md_text: str) -> str:
+    """Convert analysis markdown to dark-themed styled HTML."""
+    import re
     lines = md_text.strip().split("\n")
-    html_parts = []
+    html = []
     in_list = False
-    current_color = "#6b7280"
 
     for line in lines:
         stripped = line.strip()
-
-        # H3 headers → styled section headers
-        if stripped.startswith("### "):
+        if not stripped:
             if in_list:
-                html_parts.append('</ul>')
+                html.append("</ul>")
                 in_list = False
-            title = stripped[4:].strip()
-            current_color = _detect_section_color(title)
-            html_parts.append(
-                f'<div style="margin:18px 0 10px 0; padding:10px 14px; '
-                f'background:linear-gradient(135deg, {current_color}12 0%, {current_color}08 100%); '
-                f'border-left:3px solid {current_color}; border-radius:0 8px 8px 0;">'
-                f'<h3 style="margin:0; font-size:1.05em; font-weight:700; color:{current_color};">'
-                f'{title}</h3></div>'
-            )
+            html.append('<div style="height:8px;"></div>')
             continue
 
         # H2 headers
         if stripped.startswith("## "):
             if in_list:
-                html_parts.append('</ul>')
+                html.append("</ul>")
+                in_list = False
+            title = stripped[3:].strip()
+            html.append(
+                f'<h2 style="font-size:1.15rem; color:#ff6b9d; margin:20px 0 10px; '
+                f'padding-bottom:6px; border-bottom:1px solid #2a2a3a;">{title}</h2>'
+            )
+            continue
+
+        # H3 headers
+        if stripped.startswith("### "):
+            if in_list:
+                html.append("</ul>")
                 in_list = False
             title = stripped[4:].strip()
-            html_parts.append(
-                f'<div style="margin:20px 0 12px 0; padding:8px 14px; '
-                f'background:#1a1a2e; border-radius:8px;">'
-                f'<h2 style="margin:0; font-size:1.15em; font-weight:700; color:#fff;">'
-                f'{title}</h2></div>'
+            html.append(
+                f'<h3 style="font-size:1rem; color:#4ecdc4; margin:14px 0 8px;">{title}</h3>'
             )
             continue
 
         # Bullet points
         if re.match(r"^[-*]\s", stripped):
             if not in_list:
-                html_parts.append('<ul style="margin:4px 0; padding-left:20px;">')
+                html.append('<ul style="margin:4px 0; padding-left:20px;">')
                 in_list = True
             text = re.sub(r"^[-*]\s+", "", stripped)
-            # Bold → highlighted
-            text = re.sub(r"\*\*(.+?)\*\*", r'<strong style="color:#1a1a2e;">\1</strong>', text)
-            html_parts.append(
-                f'<li style="margin:4px 0; line-height:1.65; color:#475569; font-size:0.95em;">'
-                f'{text}</li>'
+            text = re.sub(r"\*\*(.+?)\*\*", r'<strong style="color:#e0e0e0;">\1</strong>', text)
+            html.append(
+                f'<li style="margin:4px 0; line-height:1.7; color:#b0b0b0; font-size:0.9rem;">{text}</li>'
             )
             continue
 
-        # Numbered list items
+        # Numbered items
         if re.match(r"^\d+[\.\)]\s", stripped):
             if in_list:
-                html_parts.append('</ul>')
+                html.append("</ul>")
                 in_list = False
             text = re.sub(r"^\d+[\.\)]\s+", "", stripped)
-            text = re.sub(r"\*\*(.+?)\*\*", r'<strong style="color:#1a1a2e;">\1</strong>', text)
-            html_parts.append(
-                f'<div style="margin:6px 0; padding:8px 14px; background:#f8f9fb; '
-                f'border-radius:8px; border:1px solid #edf0f4; line-height:1.6; font-size:0.95em;">'
-                f'<span style="color:{current_color}; font-weight:700; margin-right:6px;">●</span>'
-                f'{text}</div>'
+            text = re.sub(r"\*\*(.+?)\*\*", r'<strong style="color:#e0e0e0;">\1</strong>', text)
+            html.append(
+                f'<div style="margin:6px 0; padding:10px 14px; background:#14101e; '
+                f'border-radius:8px; border:1px solid #2a2a3a; line-height:1.7; font-size:0.9rem; '
+                f'border-left:3px solid #6c5ce7;">{text}</div>'
             )
             continue
 
         # Regular paragraph
-        if not stripped:
-            if in_list:
-                html_parts.append('</ul>')
-                in_list = False
-            continue
-
         if in_list:
-            html_parts.append('</ul>')
+            html.append("</ul>")
             in_list = False
-
-        text = re.sub(r"\*\*(.+?)\*\*", r'<strong style="color:#1a1a2e; background:#fef3c7; padding:1px 4px; border-radius:3px;">\1</strong>', stripped)
-        html_parts.append(
-            f'<p style="margin:6px 0; line-height:1.7; color:#4b5563; font-size:0.95em;">{text}</p>'
+        text = re.sub(r"\*\*(.+?)\*\*",
+                       r'<span style="background:rgba(255,107,157,0.15); padding:1px 6px; border-radius:4px;">\1</span>',
+                       stripped)
+        html.append(
+            f'<p style="margin:6px 0; line-height:1.8; color:#b0b0b0; font-size:0.9rem;">{text}</p>'
         )
 
     if in_list:
-        html_parts.append('</ul>')
+        html.append("</ul>")
 
-    html_body = "\n".join(html_parts)
+    body = "\n".join(html)
     return f"""
-<div style="font-family: -apple-system, BlinkMacSystemFont, 'Inter', sans-serif;
-            max-height: 600px; overflow-y: auto; padding-right: 8px;
-            scrollbar-width: thin; scrollbar-color: #c8cdd6 #f2f4f7;">
-{html_body}
+<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+            max-height:65vh; overflow-y:auto; padding-right:8px;
+            scrollbar-width:thin; scrollbar-color:#2a2a3a #111119;">
+{body}
 </div>"""
-
-ANALYSIS_PROMPT = """你是一位资深的抖音短视频内容运营专家。请分析以下从抖音视频中提取的字幕文本，给出专业的内容策略分析。
-
-## 字幕文本：
-{subtitle_text}
-
-## 请从以下维度分析：
-
-### 1. 内容主题和类型
-- 这个视频属于什么赛道/领域？
-- 内容的核心主题是什么？
-
-### 2. 开头钩子策略
-- 视频开头（前几行字幕）用了什么方式吸引观众？
-- 钩子类型：悬念/痛点/共鸣/反差/好奇/利益？
-
-### 3. 信息/情绪节奏
-- 内容的节奏如何？密集输出还是渐入佳境？
-- 情绪变化曲线是怎样的？
-
-### 4. 互动引导方式
-- 是否有点赞/评论/关注等引导？
-- 引导方式是否自然？
-
-### 5. 爆款要素分析
-- 这段内容有哪些做得好的地方？
-- 是否符合抖音的流量推荐逻辑？
-
-### 6. 优化建议
-- 给出 3 条具体可执行的改进建议
-
-请用简洁专业的中文输出分析结果。"""
 
 
 def list_available_models():
-    """Return list of available models for content analysis."""
     return AVAILABLE_MODELS
 
 
-def analyze_content(subtitle_text: str, model: str = None) -> str:
-    """Analyze video content strategy using DashScope API.
+def analyze_content(subtitle_text: str = "", model: str = None, video_meta: dict = None) -> str:
+    """Analyze video content strategy using DeepSeek API.
 
-    Returns highlighted HTML string.
+    Args:
+        subtitle_text: Caption/subtitle text (optional, enriched with video_meta).
+        model: Model name.
+        video_meta: dict with desc, author, music, hashtags, duration, resolution.
+
+    Returns:
+        Styled HTML analysis report.
     """
-    if not subtitle_text.strip():
-        return '<div style="color:#dc2626; padding:16px;">错误: 字幕文本为空，无法分析。</div>'
+    meta = video_meta or {}
 
-    if not DASHSCOPE_API_KEY:
-        return '<div style="color:#dc2626; padding:16px;">错误: 未设置 DashScope API Key。</div>'
+    desc = meta.get("desc") or meta.get("title") or "无"
+    author = meta.get("author", {}).get("nickname", "未知") if isinstance(meta.get("author"), dict) else (meta.get("author") or "未知")
+    music_info = meta.get("music", {}) or {}
+    music = music_info.get("title", "") or music_info.get("author", "无") if isinstance(music_info, dict) else "无"
 
+    hashtag_str = meta.get("hashtags", "") or ""
+    duration = (meta.get("duration", 0) or 0) // 1000 if isinstance(meta.get("duration"), int) else int(meta.get("duration", 0))
+    width = (meta.get("video", {}) or {}).get("width", 0) if isinstance(meta.get("video"), dict) else 0
+    height = (meta.get("video", {}) or {}).get("height", 0) if isinstance(meta.get("video"), dict) else 0
+    resolution = f"{width}x{height}" if width and height else "未知"
+
+    if not DEEPSEEK_API_KEY:
+        return '<div style="color:#ff6b6b; padding:16px;">未配置 DEEPSEEK_API_KEY 或 OPENAI_API_KEY 环境变量。</div>'
+
+    client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url=DEEPSEEK_BASE_URL)
     model = model or DEFAULT_MODEL
 
-    if len(subtitle_text) > 8000:
-        subtitle_text = subtitle_text[:8000] + "\n...(文本过长已截断)"
-
-    prompt = ANALYSIS_PROMPT.format(subtitle_text=subtitle_text)
-
-    body = json.dumps({
-        "model": model,
-        "max_tokens": 4000,
-        "thinking": {"type": "disabled"},
-        "messages": [
-            {"role": "user", "content": "你是专业的短视频内容运营分析助手。\n\n" + prompt},
-        ],
-    }).encode("utf-8")
-
-    req = Request(
-        DASHSCOPE_URL,
-        data=body,
-        headers={
-            "Authorization": f"Bearer {DASHSCOPE_API_KEY}",
-            "Content-Type": "application/json",
-            "anthropic-version": "2023-06-01",
-        },
-        method="POST",
+    prompt = ANALYSIS_PROMPT.format(
+        desc=desc[:200],
+        author=author,
+        music=music,
+        hashtags=hashtag_str,
+        duration=duration,
+        resolution=resolution,
+        subtitles=subtitle_text[:2000] if subtitle_text else "无",
     )
 
     try:
-        resp = urlopen(req, timeout=120)
-        data = json.loads(resp.read().decode())
-
-        content_blocks = data.get("content", [])
-        for block in content_blocks:
-            if block.get("type") == "text":
-                raw_text = block.get("text", "")
-                return _md_to_html(raw_text)
-        return f'<div style="color:#dc2626; padding:16px;">分析失败: 无法解析响应</div>'
-
-    except URLError as e:
-        return f'<div style="color:#dc2626; padding:16px;">分析失败: 网络错误 - {str(e.reason)}</div>'
+        response = client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "system", "content": "你是一位专业的抖音内容策略分析师，输出必须结构化、有深度、可执行。"},
+                {"role": "user", "content": prompt},
+            ],
+            temperature=0.7,
+            max_tokens=3000,
+        )
+        text = response.choices[0].message.content
+        return _md_to_html(text)
     except Exception as e:
-        return f'<div style="color:#dc2626; padding:16px;">分析失败: {str(e)}</div>'
+        return f'<div style="color:#ff6b6b; padding:16px;">分析失败: {str(e)}</div>'
