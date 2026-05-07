@@ -44,6 +44,7 @@ btnPaste.addEventListener('click', async () => {
     // Fallback: focus input so user can Ctrl+V directly
     urlInput.focus();
     showToast('请使用 Ctrl+V / Cmd+V 粘贴链接');
+});
 
 btnClear.addEventListener('click', () => {
     urlInput.value = '';
