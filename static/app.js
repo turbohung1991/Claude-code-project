@@ -327,40 +327,54 @@ function showAIReady(data) {
     aiSection.scrollIntoView({ behavior: 'smooth' });
 }
 
-async function exportAnalysisPDF() {
-    const raw = $('#aiContent').dataset.raw || '';
+async function doExport(format) {
+    const el = $('#aiContent');
+    const html = el.innerHTML;
+    if (!html || html.length < 50) { showToast('没有可导出的分析内容'); return; }
     const title = (videoData?.info?.desc || '分析报告').substring(0, 30);
+    const endpoint = format === 'pdf' ? '/api/export/pdf' : '/api/export/image';
+    const ext = format === 'pdf' ? '.pdf' : '.png';
     try {
-        const resp = await fetch('/api/export/pdf', {
+        showToast('正在生成' + (format === 'pdf' ? 'PDF' : '图片') + '...');
+        const resp = await fetch(endpoint, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({content: raw, title: title}),
+            body: JSON.stringify({html: html, title: title}),
         });
         if (!resp.ok) { const e = await resp.json(); throw new Error(e.error); }
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = title + '.pdf'; a.click();
+        a.href = url; a.download = title + ext; a.click();
         URL.revokeObjectURL(url);
-    } catch(e) { showToast('PDF导出失败: ' + e.message); }
+    } catch(e) { showToast('导出失败: ' + e.message); }
 }
 
-async function exportAnalysisImage() {
-    const raw = $('#aiContent').dataset.raw || '';
-    const title = (videoData?.info?.desc || '分析报告').substring(0, 30);
+function exportAnalysisPDF() { doExport('pdf'); }
+function exportAnalysisImage() { doExport('img'); }
+
+async function exportHistoryRaw(format) {
+    const el = $('#analysisDetailContent');
+    const cards = el.querySelector('.ai-card');
+    const html = cards ? el.innerHTML : el.querySelector('div') ? el.innerHTML : '';
+    if (!html || html.length < 50) { showToast('没有可导出的分析内容'); return; }
+    const title = el.dataset.title || '分析报告';
+    const endpoint = format === 'pdf' ? '/api/export/pdf' : '/api/export/image';
+    const ext = format === 'pdf' ? '.pdf' : '.png';
     try {
-        const resp = await fetch('/api/export/image', {
+        showToast('正在生成' + (format === 'pdf' ? 'PDF' : '图片') + '...');
+        const resp = await fetch(endpoint, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({content: raw, title: title}),
+            body: JSON.stringify({html: html, title: title}),
         });
         if (!resp.ok) { const e = await resp.json(); throw new Error(e.error); }
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = title + '.png'; a.click();
+        a.href = url; a.download = title + ext; a.click();
         URL.revokeObjectURL(url);
-    } catch(e) { showToast('图片导出失败: ' + e.message); }
+    } catch(e) { showToast('导出失败: ' + e.message); }
 }
 
 function finishProcess() {
@@ -480,25 +494,6 @@ async function viewAnalysis(file) {
     }
 }
 
-async function exportHistoryRaw(format) {
-    const raw = $('#analysisDetailContent').dataset.raw || '';
-    const title = $('#analysisDetailContent').dataset.title || '分析报告';
-    const endpoint = format === 'pdf' ? '/api/export/pdf' : '/api/export/image';
-    const ext = format === 'pdf' ? '.pdf' : '.png';
-    try {
-        const resp = await fetch(endpoint, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({content: raw, title: title}),
-        });
-        if (!resp.ok) { const e = await resp.json(); throw new Error(e.error); }
-        const blob = await resp.blob();
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url; a.download = title + ext; a.click();
-        URL.revokeObjectURL(url);
-    } catch(e) { showToast('导出失败: ' + e.message); }
-}
 
 function closeHistory() {
     historyModal.classList.add('hidden');

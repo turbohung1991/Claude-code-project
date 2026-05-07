@@ -404,14 +404,12 @@ strong{color:#fff}li{margin:4px 0}p{margin:6px 0}
 
 @app.route("/api/export/pdf", methods=["POST"])
 def export_pdf():
-    raw = request.json.get("content", "")
+    body_html = request.json.get("html", "")
     title = request.json.get("title", "分析报告")
-    if not raw.strip():
+    if not body_html.strip():
         return jsonify({"error": "内容为空"}), 400
 
-    # Convert markdown to basic HTML
-    body = _simple_md_to_html(raw)
-    html = f"<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{title}</title><style>{EXPORT_CSS}</style></head><body>{body}</body></html>"
+    html = _build_export_html(body_html, title)
 
     try:
         from playwright.sync_api import sync_playwright
@@ -433,13 +431,12 @@ def export_pdf():
 
 @app.route("/api/export/image", methods=["POST"])
 def export_image():
-    raw = request.json.get("content", "")
+    body_html = request.json.get("html", "")
     title = request.json.get("title", "分析报告")
-    if not raw.strip():
+    if not body_html.strip():
         return jsonify({"error": "内容为空"}), 400
 
-    body = _simple_md_to_html(raw)
-    html = f"<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{title}</title><style>{EXPORT_CSS}</style></head><body>{body}</body></html>"
+    html = _build_export_html(body_html, title)
 
     try:
         from playwright.sync_api import sync_playwright
@@ -447,7 +444,6 @@ def export_image():
             browser = pw.chromium.launch(headless=True, args=["--no-sandbox"])
             page = browser.new_page(viewport={"width": 800, "height": 600})
             page.set_content(html, wait_until="networkidle", timeout=15000)
-            # Get full page height
             height = page.evaluate("document.body.scrollHeight")
             page.set_viewport_size({"width": 800, "height": height + 40})
             png_bytes = page.screenshot(full_page=True, type="png")
@@ -460,6 +456,14 @@ def export_image():
         )
     except Exception as e:
         return jsonify({"error": f"图片生成失败: {str(e)}"}), 500
+
+
+def _build_export_html(body_html, title):
+    return f"""<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{title}</title>
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}
+body{{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0f0f13;color:#e0e0e0;padding:40px;line-height:1.8}}
+</style></head><body>{body_html}</body></html>"""
 
 
 def _simple_md_to_html(text):
