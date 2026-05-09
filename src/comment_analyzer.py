@@ -58,9 +58,7 @@ class CommentAnalyzer:
         """一站式：抓取 + 分析"""
         from src.core import CommentFetcher
 
-        raw = asyncio.run(
-            CommentFetcher.fetch_comments(video_id, max_hot, max_latest)
-        )
+        raw = CommentFetcher.fetch_comments_sync(video_id, max_hot, max_latest)
 
         all_comments = raw['hot_comments'] + raw['latest_comments']
         if not all_comments:
@@ -103,9 +101,7 @@ class CommentAnalyzer:
         """翻页加载 + 合并分析"""
         from src.core import CommentFetcher
 
-        more = asyncio.run(
-            CommentFetcher.load_more(video_id, cursor, count)
-        )
+        more = CommentFetcher.load_more_sync(video_id, cursor, count)
 
         new_comments = more['comments']
         all_comments = (

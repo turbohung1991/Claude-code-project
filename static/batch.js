@@ -190,10 +190,20 @@ function updateTaskCard(taskId, updates) {
 function updateGlobalProgress() {
     const tasks = Object.values(taskStates);
     const done = tasks.filter(t => t.status === 'done').length;
+    const error = tasks.filter(t => t.status === 'error').length;
     const total = tasks.length;
-    const pct = total > 0 ? Math.round(done * 100 / total) : 0;
+    const finished = done + error;
+    const pct = total > 0 ? Math.round(finished * 100 / total) : 0;
     globalProgressFill.style.width = pct + '%';
     globalProgressText.textContent = done + ' / ' + total + ' 完成';
+
+    // All tasks finished
+    if (finished >= total && total > 0) {
+        btnStart.textContent = '重新开始';
+        btnStart.disabled = false;
+        btnPause.classList.add('hidden');
+        btnResume.classList.add('hidden');
+    }
 }
 
 // ==================== SSE ====================

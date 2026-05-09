@@ -586,13 +586,15 @@ class DouyinParser:
 # ================================================================
 
 class CommentFetcher:
-    """抖音评论抓取器 — 基于 Playwright API 拦截"""
+    """抖音评论抓取器 — 使用同步 Playwright API（线程安全）"""
 
     @classmethod
-    async def fetch_comments(
+    def fetch_comments_sync(
         cls, video_id: str, max_hot: int = 200, max_latest: int = 100
     ) -> Dict:
-        """抓取评论。返回 hot_comments, latest_comments, total_fetched, cursor, has_more"""
+        """同步抓取评论。在线程中安全使用。"""
+        from playwright.sync_api import sync_playwright
+
         result = {
             'video_id': video_id,
             'hot_comments': [],
@@ -602,155 +604,164 @@ class CommentFetcher:
             'has_more': False,
         }
 
-        pw, browser = await DouyinParser._launch_browser()
-        try:
-            context = await browser.new_context(
-                user_agent=(
-                    'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) '
-                    'AppleWebKit/605.1.15 (KHTML, like Gecko) '
-                    'Version/16.0 Mobile/15E148 Safari/604.1'
-                ),
-                viewport={'width': 390, 'height': 844},
-                locale='zh-CN',
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(
+                headless=True,
+                args=['--no-sandbox', '--disable-setuid-sandbox'],
             )
-            page = await context.new_page()
+            try:
+                context = browser.new_context(
+                    user_agent=(
+                        'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) '
+                        'AppleWebKit/605.1.15 (KHTML, like Gecko) '
+                        'Version/16.0 Mobile/15E148 Safari/604.1'
+                    ),
+                    viewport={'width': 390, 'height': 844},
+                    locale='zh-CN',
+                )
+                page = context.new_page()
 
-            comments_data = []
+                comments_data = []
 
-            async def on_response(resp):
-                nonlocal comments_data
-                url = resp.url
-                if 'comment/list' in url and not comments_data:
+                def on_response(resp):
+                    url = resp.url
+                    if 'comment/list' in url and not comments_data:
+                        try:
+                            body = resp.json()
+                            if body.get('comments') or body.get('comment_list'):
+                                comments_data.append(body)
+                        except Exception:
+                            pass
+
+                page.on('response', on_response)
+
+                # 先访问抖音首页建立 session
+                page.goto('https://www.douyin.com/', wait_until='domcontentloaded', timeout=20000)
+                page.wait_for_timeout(2000)
+
+                # 访问视频页面
+                video_url = f'https://www.douyin.com/video/{video_id}'
+                page.goto(video_url, wait_until='domcontentloaded', timeout=20000)
+                page.wait_for_timeout(3000)
+
+                # 滚动触发评论加载
+                for _ in range(3):
+                    page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
+                    page.wait_for_timeout(1500)
+
+                # 直接请求评论 API
+                if not comments_data:
                     try:
-                        body = await resp.json()
-                        if body.get('comments') or body.get('comment_list'):
-                            comments_data.append(body)
+                        comment_api = (
+                            f'https://www.douyin.com/aweme/v1/web/comment/list/'
+                            f'?aweme_id={video_id}&cursor=0&count=50&item_type=0'
+                        )
+                        page.goto(comment_api, wait_until='domcontentloaded', timeout=15000)
+                        page.wait_for_timeout(3000)
                     except Exception:
                         pass
 
-            page.on('response', on_response)
+                print(f"[CommentFetcher] captured {len(comments_data)} responses for {video_id}",
+                      flush=True)
 
-            await page.goto(
-                'https://www.douyin.com/', wait_until='domcontentloaded', timeout=20000
-            )
-            await page.wait_for_timeout(2000)
-
-            video_url = f'https://www.douyin.com/video/{video_id}'
-            await page.goto(video_url, wait_until='domcontentloaded', timeout=20000)
-            await page.wait_for_timeout(3000)
-
-            for _ in range(3):
-                await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
-                await page.wait_for_timeout(1500)
-
-            # 直接请求评论 API 触发拦截
-            if not comments_data:
-                try:
-                    comment_api = (
-                        f'https://www.douyin.com/aweme/v1/web/comment/list/'
-                        f'?aweme_id={video_id}&cursor=0&count=50&item_type=0'
+                if comments_data:
+                    data = comments_data[0]
+                    raw_comments = (
+                        data.get('comments', []) or
+                        data.get('comment_list', []) or
+                        data.get('data', {}).get('comments', [])
                     )
-                    await page.goto(comment_api, wait_until='domcontentloaded', timeout=15000)
-                    await page.wait_for_timeout(3000)
-                except Exception:
-                    pass
 
-            print(f"[CommentFetcher] captured {len(comments_data)} responses for {video_id}")
+                    hot, latest = [], []
+                    for c in raw_comments:
+                        item = cls._normalize_comment(c)
+                        if not item['content']:
+                            continue
+                        if c.get('is_hot') or c.get('is_hot_comment'):
+                            hot.append(item)
+                        else:
+                            latest.append(item)
 
-            if comments_data:
-                data = comments_data[0]
-                raw_comments = (
-                    data.get('comments', []) or
-                    data.get('comment_list', []) or
-                    data.get('data', {}).get('comments', [])
-                )
+                    hot = hot[:max_hot]
+                    latest = latest[:max_latest]
 
-                hot, latest = [], []
-                for c in raw_comments:
-                    item = cls._normalize_comment(c)
-                    if not item['content']:
-                        continue
-                    if c.get('is_hot') or c.get('is_hot_comment'):
-                        hot.append(item)
-                    else:
-                        latest.append(item)
+                    result['hot_comments'] = hot
+                    result['latest_comments'] = latest
+                    result['total_fetched'] = len(hot) + len(latest)
+                    if latest:
+                        result['cursor'] = latest[-1].get('create_time', 0)
+                        result['has_more'] = len(latest) >= max_latest
 
-                hot = hot[:max_hot]
-                latest = latest[:max_latest]
-
-                result['hot_comments'] = hot
-                result['latest_comments'] = latest
-                result['total_fetched'] = len(hot) + len(latest)
-                if latest:
-                    result['cursor'] = latest[-1].get('create_time', 0)
-                    result['has_more'] = len(latest) >= max_latest
-
-            await context.close()
-        finally:
-            await browser.close()
-            await pw.stop()
+                context.close()
+            finally:
+                browser.close()
 
         return result
 
     @classmethod
-    async def load_more(cls, video_id: str, cursor: int, count: int = 50) -> Dict:
-        """翻页加载更多评论"""
+    def load_more_sync(cls, video_id: str, cursor: int, count: int = 50) -> Dict:
+        """同步翻页加载更多评论"""
+        from playwright.sync_api import sync_playwright
+
         result = {
             'comments': [],
             'cursor': cursor,
             'has_more': False,
         }
 
-        pw, browser = await DouyinParser._launch_browser()
-        try:
-            context = await browser.new_context(
-                user_agent=(
-                    'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) '
-                    'AppleWebKit/605.1.15 (KHTML, like Gecko) '
-                    'Version/16.0 Mobile/15E148 Safari/604.1'
-                ),
-                viewport={'width': 390, 'height': 844},
-                locale='zh-CN',
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(
+                headless=True,
+                args=['--no-sandbox', '--disable-setuid-sandbox'],
             )
-            page = await context.new_page()
-
-            captured = []
-
-            async def on_response(resp):
-                if 'comment/list' in resp.url and not captured:
-                    try:
-                        body = await resp.json()
-                        captured.append(body)
-                    except Exception:
-                        pass
-
-            page.on('response', on_response)
-
-            api_url = (
-                f'https://www.douyin.com/aweme/v1/web/comment/list/'
-                f'?aweme_id={video_id}&cursor={cursor}&count={count}&item_type=0'
-            )
-            await page.goto(api_url, wait_until='domcontentloaded', timeout=15000)
-            await page.wait_for_timeout(3000)
-
-            if captured:
-                data = captured[0]
-                raw = (
-                    data.get('comments', []) or
-                    data.get('comment_list', []) or
-                    data.get('data', {}).get('comments', [])
+            try:
+                context = browser.new_context(
+                    user_agent=(
+                        'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) '
+                        'AppleWebKit/605.1.15 (KHTML, like Gecko) '
+                        'Version/16.0 Mobile/15E148 Safari/604.1'
+                    ),
+                    viewport={'width': 390, 'height': 844},
+                    locale='zh-CN',
                 )
-                result['comments'] = [
-                    cls._normalize_comment(c) for c in raw
-                    if cls._normalize_comment(c)['content']
-                ]
-                result['cursor'] = data.get('cursor', 0)
-                result['has_more'] = data.get('has_more', 0) == 1
+                page = context.new_page()
 
-            await context.close()
-        finally:
-            await browser.close()
-            await pw.stop()
+                captured = []
+
+                def on_response(resp):
+                    if 'comment/list' in resp.url and not captured:
+                        try:
+                            body = resp.json()
+                            captured.append(body)
+                        except Exception:
+                            pass
+
+                page.on('response', on_response)
+
+                api_url = (
+                    f'https://www.douyin.com/aweme/v1/web/comment/list/'
+                    f'?aweme_id={video_id}&cursor={cursor}&count={count}&item_type=0'
+                )
+                page.goto(api_url, wait_until='domcontentloaded', timeout=15000)
+                page.wait_for_timeout(3000)
+
+                if captured:
+                    data = captured[0]
+                    raw = (
+                        data.get('comments', []) or
+                        data.get('comment_list', []) or
+                        data.get('data', {}).get('comments', [])
+                    )
+                    result['comments'] = [
+                        cls._normalize_comment(c) for c in raw
+                        if cls._normalize_comment(c)['content']
+                    ]
+                    result['cursor'] = data.get('cursor', 0)
+                    result['has_more'] = data.get('has_more', 0) == 1
+
+                context.close()
+            finally:
+                browser.close()
 
         return result
 
