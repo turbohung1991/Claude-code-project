@@ -61,7 +61,7 @@ class SubtitleExtractor:
 
     def _extract_from_api(self, video_data: Dict) -> str:
         """从API响应中提取字幕文本"""
-        from core import DouyinParser
+        from src.core import DouyinParser
         return DouyinParser.extract_captions(video_data)
 
     def _extract_via_ocr(self, video_path: str) -> Optional[str]:
