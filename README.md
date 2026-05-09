@@ -3,8 +3,7 @@ title: Vibecoding
 emoji: 🏃
 colorFrom: indigo
 colorTo: yellow
-sdk: gradio
-sdk_version: 6.14.0
+sdk: docker
 python_version: '3.13'
 app_file: app.py
 pinned: false
