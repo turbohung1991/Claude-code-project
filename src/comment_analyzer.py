@@ -146,28 +146,35 @@ class CommentAnalyzer:
             'neutral_count': neu,
         }
 
-    def _extract_keywords(self, comments: List[Dict], top_n: int = 10) -> List[Dict]:
-        """基于 TF 的关键词提取"""
+    def _extract_keywords(self, comments: List[Dict], top_n: int = 15) -> List[Dict]:
+        """基于 jieba 分词 + TF 的关键词提取"""
+        import jieba
+
+        # 表情包模式（过滤抖音括号表情：捂脸/微笑/玫瑰/笑哭/送花/流泪 等）
+        EMOJI_PATTERN = re.compile(r'\[[一-鿿\w]+\]')
+
         word_freq = {}
         for c in comments:
             text = c.get('content', '')
-            cleaned = re.sub(r'[^一-鿿]', ' ', text)
-            words = cleaned.split()
+            # 移除表情包
+            text = EMOJI_PATTERN.sub('', text)
+            # 移除 URL、纯数字、标点
+            text = re.sub(r'https?://\S+', '', text)
+            text = re.sub(r'[@#]\S+', '', text)
+
+            # jieba 分词
+            words = jieba.cut(text)
             for w in words:
-                if len(w) >= 2 and w not in STOP_WORDS:
+                w = w.strip()
+                if len(w) >= 2 and w not in STOP_WORDS and not w.isdigit():
                     word_freq[w] = word_freq.get(w, 0) + 1
 
-        for c in comments:
-            text = re.sub(r'[^一-鿿]', '', c.get('content', ''))
-            for i in range(len(text) - 1):
-                bigram = text[i:i + 2]
-                if bigram not in STOP_WORDS and len(bigram) == 2:
-                    word_freq[bigram] = word_freq.get(bigram, 0) + 0.5
-
+        # 按频次排序
         sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
-        return [
-            {'word': w, 'count': int(c)} for w, c in sorted_words[:top_n]
-        ]
+        # 取 top_n，但过滤掉频次太低的
+        result = [{'word': w, 'count': int(c)} for w, c in sorted_words[:top_n * 2]
+                  if c >= 2][:top_n]
+        return result
 
     def _ai_summary(
         self, comments: List[Dict], sentiment: Dict, keywords: List[Dict]

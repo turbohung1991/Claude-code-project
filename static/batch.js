@@ -354,21 +354,30 @@ function renderCommentResult(taskId, data) {
     let cloudHtml = '';
     if (analysis.keywords && analysis.keywords.length > 0) {
         const maxCount = analysis.keywords[0].count || 1;
-        const rotations = [-8, -4, 0, 0, 3, 7, -3, 5, -6, 2, -2, 6, -5, 4, -7];
-        cloudHtml = '<div style="background:linear-gradient(135deg,rgba(108,92,231,0.06),transparent);border-left:3px solid #6c5ce7;border-radius:0 10px 10px 0;padding:20px 18px;margin-bottom:18px;border-top:1px solid #1e1e2e;border-right:1px solid #1e1e2e;border-bottom:1px solid #1e1e2e;">' +
-            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">' +
+        const minCount = analysis.keywords[analysis.keywords.length - 1].count || 1;
+        const palette = ['#a78bfa', '#e879f9', '#f472b6', '#fb7185', '#fbbf24', '#34d399', '#38bdf8', '#818cf8', '#c084fc', '#fb923c', '#4ade80'];
+        // Pre-shuffle to avoid adjacent same colors
+        const rotations = [-6, -2, 0, 0, 3, -4, 1, -5, -1, 4, 0, -3, 2, 5, -7];
+
+        cloudHtml = '<div style="background:radial-gradient(ellipse at center,rgba(108,92,231,0.08),rgba(15,15,19,0.3));border-left:3px solid #6c5ce7;border-radius:0 10px 10px 0;padding:22px 20px;margin-bottom:18px;border-top:1px solid #1e1e2e;border-right:1px solid #1e1e2e;border-bottom:1px solid #1e1e2e;overflow:hidden;">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;">' +
             '<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(108,92,231,0.13);font-size:1rem;">☁️</span>' +
             '<span style="font-size:1.05rem;font-weight:700;color:#6c5ce7;">评论词云</span>' +
             '</div>' +
-            '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;padding:12px 8px;min-height:80px;">' +
+            '<div style="display:flex;flex-wrap:wrap;gap:10px 8px;align-items:center;justify-content:center;padding:16px 4px;min-height:120px;line-height:1.4;">' +
             analysis.keywords.map((k, i) => {
-                const ratio = k.count / maxCount;
-                const size = 0.8 + ratio * 1.8;
-                const color = C[i % C.length];
+                const ratio = (k.count - minCount) / (maxCount - minCount || 1);
+                // Size: 0.75rem ~ 2.2rem
+                const size = 0.75 + ratio * 1.45;
+                // Weight
+                const weight = ratio > 0.6 ? 700 : ratio > 0.25 ? 600 : 400;
+                // Color: weight-based
+                const color = ratio > 0.5 ? '#f472b6' : ratio > 0.3 ? '#a78bfa' : palette[i % palette.length];
                 const rot = rotations[i % rotations.length];
-                const weight = ratio > 0.5 ? '700' : ratio > 0.3 ? '600' : '400';
-                const shadow = ratio > 0.4 ? '0 2px 8px ' + color + '33' : 'none';
-                return '<span style="display:inline-block;padding:' + (4 + ratio * 6).toFixed(0) + 'px ' + (10 + ratio * 14).toFixed(0) + 'px;border-radius:24px;font-size:' + size.toFixed(1) + 'rem;font-weight:' + weight + ';color:' + color + ';background:linear-gradient(135deg,' + color + '18,' + color + '08);border:1.5px solid ' + color + '44;transform:rotate(' + rot + 'deg);box-shadow:' + shadow + ';transition:transform 0.2s,box-shadow 0.2s;cursor:default;' + (ratio > 0.5 ? 'letter-spacing:0.02em;' : '') + '" onmouseover="this.style.transform=\'rotate(0deg) scale(1.1)\';this.style.boxShadow=\'0 4px 16px ' + color + '44\';this.style.zIndex=1;" onmouseout="this.style.transform=\'rotate(' + rot + 'deg) scale(1)\';this.style.boxShadow=\'' + shadow + '\';this.style.zIndex=0;">' + escHTML(k.word) + '</span>';
+                // Background opacity
+                const bgAlpha = 0.08 + ratio * 0.14;
+                const glow = ratio > 0.5 ? '0 0 16px ' + color + '22, ' : '';
+                return '<span style="display:inline-block;padding:' + (4 + ratio * 6).toFixed(0) + 'px ' + (12 + ratio * 14).toFixed(0) + 'px;border-radius:' + (16 + ratio * 10).toFixed(0) + 'px;font-size:' + size.toFixed(2) + 'rem;font-weight:' + weight + ';color:' + color + ';background:' + color + Math.round(bgAlpha * 255).toString(16).padStart(2, '0') + ';border:1px solid ' + color + '33;transform:rotate(' + rot + 'deg);box-shadow:' + glow + '0 1px 4px rgba(0,0,0,0.2);transition:all 0.25s cubic-bezier(0.4,0,0.2,1);cursor:default;white-space:nowrap;' + '" onmouseover="this.style.transform=\'rotate(0deg) scale(1.15)\';this.style.boxShadow=\'0 4px 20px ' + color + '55, 0 0 8px ' + color + '33\';this.style.zIndex=10;this.style.position=\'relative\';" onmouseout="this.style.transform=\'rotate(' + rot + 'deg) scale(1)\';this.style.boxShadow=\'' + (glow + '0 1px 4px rgba(0,0,0,0.2)').replace(/'/g, "\\'") + '\';this.style.zIndex=0;this.style.position=\'static\';">' + escHTML(k.word) + '</span>';
             }).join('') +
             '</div></div>';
     }
