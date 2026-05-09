@@ -41,6 +41,8 @@ from converters.ppt_to_images import ppt_to_images
 from converters.pdf_to_images import pdf_to_images
 from converters.images_to_pdf import images_to_pdf
 from converters.bg_remove import remove_background, MODELS, get_credits_info
+from src.batch_manager import batch_manager
+from src.comment_analyzer import comment_analyzer
 
 app = Flask(__name__)
 CORS(app)
@@ -52,6 +54,7 @@ DOWNLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloa
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 tasks = {}
+_comment_cache = {}
 
 # ── Playwright auto-install on startup ──
 def _ensure_playwright():
@@ -95,6 +98,11 @@ def convert_page():
 @app.route("/bgremove")
 def bgremove_page():
     return render_template("bgremove.html")
+
+
+@app.route("/batch")
+def batch_page():
+    return render_template("batch.html")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -411,6 +419,134 @@ def _save_analysis(filename, video_data, analysis):
     }
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
+
+
+# ═══════════════════════════════════════════════════════════════
+# Batch Download API
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/api/batch/create", methods=["POST"])
+def batch_create():
+    urls = request.json.get("urls", [])
+    if not urls:
+        return jsonify({"success": False, "error": "请提供至少一个链接"})
+    if len(urls) > 50:
+        return jsonify({"success": False, "error": "单次最多50个链接"})
+
+    batch_id = batch_manager.create_batch(urls)
+    batch_manager.start(batch_id)
+    status = batch_manager.get_status(batch_id)
+
+    return jsonify({
+        "success": True,
+        "batch_id": batch_id,
+        "tasks": status["tasks"] if status else [],
+    })
+
+
+@app.route("/api/batch/status/<batch_id>")
+def batch_status(batch_id):
+    status = batch_manager.get_status(batch_id)
+    if not status:
+        return jsonify({"error": "任务不存在"}), 404
+    return jsonify(status)
+
+
+@app.route("/api/batch/pause", methods=["POST"])
+def batch_pause():
+    batch_id = request.json.get("batch_id", "")
+    batch_manager.pause(batch_id)
+    return jsonify({"success": True})
+
+
+@app.route("/api/batch/resume", methods=["POST"])
+def batch_resume():
+    batch_id = request.json.get("batch_id", "")
+    batch_manager.resume(batch_id)
+    return jsonify({"success": True})
+
+
+@app.route("/api/batch/retry/<task_id>", methods=["POST"])
+def batch_retry(task_id):
+    for batch_id, batch in batch_manager.batches.items():
+        for task in batch['tasks']:
+            if task['task_id'] == task_id:
+                batch_manager.retry_task(batch_id, task_id)
+                return jsonify({"success": True})
+    return jsonify({"error": "任务不存在"}), 404
+
+
+# ═══════════════════════════════════════════════════════════════
+# Comment Analysis API
+# ═══════════════════════════════════════════════════════════════
+
+@app.route("/api/comments/fetch", methods=["POST"])
+def comments_fetch():
+    video_id = request.json.get("video_id", "")
+    if not video_id:
+        return jsonify({"success": False, "error": "缺少 video_id"})
+
+    def do_fetch():
+        try:
+            result = comment_analyzer.fetch_and_analyze(video_id)
+            _comment_cache[video_id] = result
+        except Exception as e:
+            _comment_cache[video_id] = {"error": str(e), "total_fetched": 0}
+
+    threading.Thread(target=do_fetch, daemon=True).start()
+    return jsonify({"success": True, "message": "评论抓取已启动"})
+
+
+@app.route("/api/comments/result/<video_id>")
+def comments_result(video_id):
+    result = _comment_cache.get(video_id)
+    if not result:
+        return jsonify({"status": "fetching"})
+    if result.get("error"):
+        return jsonify({"status": "error", "error": result["error"]})
+    return jsonify(result)
+
+
+@app.route("/api/comments/load-more")
+def comments_load_more():
+    video_id = request.args.get("video_id", "")
+    cursor = int(request.args.get("cursor", 0))
+    count = int(request.args.get("count", 50))
+    existing = _comment_cache.get(video_id, {})
+    result = comment_analyzer.load_more_and_analyze(video_id, cursor, existing, count)
+    _comment_cache[video_id] = result
+    return jsonify(result)
+
+
+@app.route("/api/comments/export/<video_id>")
+def comments_export(video_id):
+    data = _comment_cache.get(video_id)
+    if not data or data.get("error"):
+        return jsonify({"error": "无分析数据"}), 404
+
+    analysis = data.get("analysis", {})
+    sentiment = analysis.get("sentiment", {})
+    keywords = analysis.get("keywords", [])
+    summary = analysis.get("summary", "")
+
+    kw_html = ''.join(
+        f'<span style="display:inline-block;background:rgba(108,92,231,0.15);color:#a78bfa;padding:4px 12px;border-radius:20px;margin:3px;font-size:0.85rem;">{k["word"]} ({k["count"]})</span>'
+        for k in keywords
+    )
+
+    body_html = f"""<h2>评论分析报告</h2>
+<p>视频ID: {video_id} | 评论数: {data.get('total_fetched', 0)}</p>
+<h3>情感分布</h3>
+<table><tr><th>正面</th><th>中性</th><th>负面</th></tr>
+<tr>
+<td style="color:#00d68f;">{sentiment.get('positive', 0)}% ({sentiment.get('positive_count', 0)})</td>
+<td style="color:#ffa502;">{sentiment.get('neutral', 0)}% ({sentiment.get('neutral_count', 0)})</td>
+<td style="color:#ff6b6b;">{sentiment.get('negative', 0)}% ({sentiment.get('negative_count', 0)})</td>
+</tr></table>
+<h3>高频关键词</h3><div>{kw_html}</div>
+<h3>AI 综合总结</h3><p>{summary}</p>"""
+
+    return jsonify({"html": body_html, "title": f"评论分析_{video_id}"})
 
 
 # ═══════════════════════════════════════════════════════════════
