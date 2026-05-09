@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>批量下载 — AI智能工具箱</title>
+    <link rel="stylesheet" href="/static/style.css?v=3">
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>AI智能工具箱</h1>
+            <div class="subtitle-nav">
+                <a href="/" class="douyin-link">抖音小助手</a>
+                <span style="color:#555;">·</span>
+                <a href="/batch" class="bg-link" style="border-color:rgba(255,255,255,0.5); box-shadow:0 0 18px rgba(108,92,231,0.25);">批量下载</a>
+                <span style="color:#555;">·</span>
+                <a href="/convert" class="convert-link">文档转换神器</a>
+                <span style="color:#555;">·</span>
+                <a href="/bgremove" class="bg-link">一键抠图</a>
+            </div>
+        </header>
+
+        <section class="batch-input-section">
+            <textarea id="batchUrls" placeholder="粘贴抖音链接，一行一个&#10;&#10;例如:&#10;https://v.douyin.com/abc123/&#10;https://www.douyin.com/video/123456789&#10;https://v.douyin.com/def456/"></textarea>
+            <div class="batch-actions">
+                <button id="btnBatchStart" class="btn btn-primary">批量下载</button>
+                <div class="batch-global-controls">
+                    <button id="btnBatchPause" class="btn btn-sm hidden"></button>
+                    <button id="btnBatchResume" class="btn btn-sm hidden"></button>
+                    <button id="btnBatchClear" class="btn btn-sm"></button>
+                </div>
+            </div>
+        </section>
+
+        <section id="batchProgressSection" class="batch-overall-progress hidden">
+            <div class="progress-label">
+                <span></span>
+                <span id="globalProgressText">0 / 0 </span>
+            </div>
+            <div class="progress-bar">
+                <div id="globalProgressFill" class="progress-fill" style="width:0%;"></div>
+            </div>
+        </section>
+
+        <section id="taskCards" class="task-cards"></section>
+
+        <div id="toast" class="toast hidden"></div>
+    </div>
+
+    <script src="/static/batch.js?v=1"></script>
+</body>
+</html>
