@@ -245,8 +245,12 @@ function connectTaskSSE(taskId) {
     });
 
     es.addEventListener('error', (e) => {
-        const data = JSON.parse(e.data);
-        updateTaskCard(taskId, { status: 'error', message: data.message || '' });
+        try {
+            const data = JSON.parse(e.data);
+            updateTaskCard(taskId, { status: 'error', message: data.message || '' });
+        } catch {
+            updateTaskCard(taskId, { status: 'error', message: '' });
+        }
         es.close();
     });
 

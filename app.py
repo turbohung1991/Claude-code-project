@@ -58,9 +58,10 @@ _comment_cache = {}
 
 # ── Playwright auto-install on startup ──
 def _ensure_playwright():
-    cache = os.path.expanduser("~/.cache/ms-playwright")
-    if os.path.isdir(cache) and os.listdir(cache):
-        return
+    for cache_dir in ("~/.cache/ms-playwright", "~/Library/Caches/ms-playwright"):
+        cache = os.path.expanduser(cache_dir)
+        if os.path.isdir(cache) and os.listdir(cache):
+            return
     print("[setup] Installing Playwright Chromium (one-time, ~300MB)...")
     import subprocess
     subprocess.run([sys.executable, "-m", "playwright", "install", "--with-deps", "chromium"],
@@ -307,11 +308,25 @@ def process_video():
 
 @app.route("/api/stream/<task_id>")
 def stream(task_id):
-    if task_id not in tasks:
+    queue = None
+
+    # Check global tasks dict first
+    if task_id in tasks:
+        queue = tasks[task_id]["queue"]
+    else:
+        # Check batch manager's tasks
+        for batch in batch_manager.batches.values():
+            for t in batch.get('tasks', []):
+                if t['task_id'] == task_id:
+                    queue = t['queue']
+                    break
+            if queue:
+                break
+
+    if queue is None:
         return jsonify({"error": "任务不存在"}), 404
 
     def generate():
-        queue = tasks[task_id]["queue"]
         while True:
             try:
                 event = queue.get(timeout=30)
