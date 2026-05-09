@@ -6,7 +6,6 @@
 import json
 import os
 import re
-import asyncio
 from typing import Dict, List, Optional
 
 # 中文停用词（精简版）
@@ -98,16 +97,19 @@ class CommentAnalyzer:
     def load_more_and_analyze(
         self, video_id: str, cursor: int, existing: Dict, count: int = 50
     ) -> Dict:
-        """翻页加载 + 合并分析"""
+        """加载更多 + 合并分析（重新抓取更大批量）"""
         from src.core import CommentFetcher
 
-        more = CommentFetcher.load_more_sync(video_id, cursor, count)
+        current_total = existing.get('total_fetched', 0)
+        new_max = min(current_total + count, 500)
 
-        new_comments = more['comments']
+        more = CommentFetcher.fetch_comments_sync(
+            video_id, max_hot=200, max_latest=new_max
+        )
+
         all_comments = (
-            existing.get('hot_comments', []) +
-            existing.get('latest_comments', []) +
-            new_comments
+            more.get('hot_comments', []) +
+            more.get('latest_comments', [])
         )
 
         if len(all_comments) > 500:
@@ -120,8 +122,8 @@ class CommentAnalyzer:
         return {
             'video_id': video_id,
             'total_fetched': len(all_comments),
-            'hot_comments': existing.get('hot_comments', []),
-            'latest_comments': existing.get('latest_comments', []) + new_comments,
+            'hot_comments': more.get('hot_comments', []),
+            'latest_comments': more.get('latest_comments', []),
             'analysis': {
                 'sentiment': sentiment,
                 'keywords': keywords,

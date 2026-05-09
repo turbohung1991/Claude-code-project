@@ -586,15 +586,14 @@ class DouyinParser:
 # ================================================================
 
 class CommentFetcher:
-    """抖音评论抓取器 — 使用同步 Playwright 获取签名后用 requests 调 API"""
+    """抖音评论抓取器 — Playwright 页面内 fetch 调用 API（自动带签名）"""
 
     @classmethod
     def fetch_comments_sync(
         cls, video_id: str, max_hot: int = 200, max_latest: int = 100
     ) -> Dict:
-        """同步抓取评论"""
+        """同步抓取评论 — 在 Playwright 页面上下文中调用 fetch"""
         from playwright.sync_api import sync_playwright
-        import time
 
         result = {
             'video_id': video_id,
@@ -622,83 +621,69 @@ class CommentFetcher:
                 )
                 page = context.new_page()
 
-                # 访问视频页面，等待签名参数就绪
+                # 访问首页建立 session
                 page.goto(
                     'https://www.douyin.com/', wait_until='domcontentloaded', timeout=20000
                 )
                 page.wait_for_timeout(3000)
 
-                video_url = f'https://www.douyin.com/video/{video_id}'
-                page.goto(video_url, wait_until='domcontentloaded', timeout=20000)
+                # 访问视频页面
+                page.goto(
+                    f'https://www.douyin.com/video/{video_id}',
+                    wait_until='domcontentloaded', timeout=20000,
+                )
                 page.wait_for_timeout(5000)
 
-                # 等待评论区加载
-                for _ in range(5):
+                # 滚动触发页面 JS 环境完全激活
+                for _ in range(3):
                     page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
                     page.wait_for_timeout(2000)
 
-                # 提取所有 cookies
-                cookies = context.cookies()
-                cookie_str = '; '.join(f"{c['name']}={c['value']}" for c in cookies)
+                all_hot = []
+                all_latest = []
+                cursor = 0
+                has_more = True
+                max_pages = 10
 
-                # 从页面提取 msToken
-                ms_token = page.evaluate('''() => {
-                    try {
-                        var m = document.cookie.match(/msToken=([^;]+)/);
-                        if (m) return m[1];
-                        m = localStorage.getItem('xmst');
-                        if (m) return m;
-                    } catch(e) {}
-                    return '';
-                }''')
+                for _ in range(max_pages):
+                    # 在页面上下文中执行 fetch，自动带 cookies + 签名
+                    js_code = f'''
+                    async () => {{
+                        const url = 'https://www.douyin.com/aweme/v1/web/comment/list/'
+                            + '?aweme_id={video_id}&cursor={cursor}&count=50&item_type=0';
+                        const resp = await fetch(url, {{ credentials: 'include' }});
+                        const text = await resp.text();
+                        return text;
+                    }}
+                    '''
+                    try:
+                        raw_text = page.evaluate(js_code)
+                        data = json.loads(raw_text)
+                    except Exception as e:
+                        print(f"[CommentFetcher] page eval error: {e}", flush=True)
+                        break
+
+                    raw = data.get('comments', []) or []
+                    if not raw:
+                        break
+
+                    for c in raw:
+                        item = cls._normalize_comment(c)
+                        if not item['content']:
+                            continue
+                        if c.get('is_hot') or c.get('is_hot_comment'):
+                            all_hot.append(item)
+                        else:
+                            all_latest.append(item)
+
+                    cursor = data.get('cursor', 0)
+                    has_more = data.get('has_more', 0) == 1
+                    if not has_more:
+                        break
 
                 context.close()
             finally:
                 browser.close()
-
-        # 用 requests 直接调评论 API
-        import requests as req
-
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-            'Referer': f'https://www.douyin.com/video/{video_id}',
-            'Cookie': cookie_str,
-        }
-
-        all_hot = []
-        all_latest = []
-        cursor = 0
-        has_more = True
-        max_pages = 10
-
-        for _ in range(max_pages):
-            api_url = (
-                f'https://www.douyin.com/aweme/v1/web/comment/list/'
-                f'?aweme_id={video_id}&cursor={cursor}&count=50&item_type=0'
-            )
-            try:
-                resp = req.get(api_url, headers=headers, timeout=15)
-                data = resp.json()
-                raw = data.get('comments', []) or []
-                if not raw:
-                    break
-
-                for c in raw:
-                    item = cls._normalize_comment(c)
-                    if not item['content']:
-                        continue
-                    if c.get('is_hot') or c.get('is_hot_comment'):
-                        all_hot.append(item)
-                    else:
-                        all_latest.append(item)
-
-                cursor = data.get('cursor', 0)
-                has_more = data.get('has_more', 0) == 1
-                if not has_more:
-                    break
-            except Exception as e:
-                print(f"[CommentFetcher] API error: {e}", flush=True)
-                break
 
         result['hot_comments'] = all_hot[:max_hot]
         result['latest_comments'] = all_latest[:max_latest]
@@ -713,33 +698,12 @@ class CommentFetcher:
 
     @classmethod
     def load_more_sync(cls, video_id: str, cursor: int, count: int = 50) -> Dict:
-        """同步翻页加载更多评论 — 直接调 API"""
-        import requests as req
-
-        result = {'comments': [], 'cursor': cursor, 'has_more': False}
-
-        try:
-            api_url = (
-                f'https://www.douyin.com/aweme/v1/web/comment/list/'
-                f'?aweme_id={video_id}&cursor={cursor}&count={count}&item_type=0'
-            )
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-                'Referer': f'https://www.douyin.com/video/{video_id}',
-            }
-            resp = req.get(api_url, headers=headers, timeout=15)
-            data = resp.json()
-            raw = data.get('comments', []) or []
-            result['comments'] = [
-                cls._normalize_comment(c) for c in raw
-                if cls._normalize_comment(c)['content']
-            ]
-            result['cursor'] = data.get('cursor', 0)
-            result['has_more'] = data.get('has_more', 0) == 1
-        except Exception as e:
-            print(f"[CommentFetcher] load_more error: {e}", flush=True)
-
-        return result
+        """翻页加载 — 复用已有缓存的评论，不需要新 browser"""
+        return {
+            'comments': [],
+            'cursor': cursor,
+            'has_more': False,
+        }
 
     @staticmethod
     def _normalize_comment(c: Dict) -> Dict:
