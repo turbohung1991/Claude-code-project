@@ -18,17 +18,34 @@ if (btnParse) {
 }
 const parseError = $('#parseError');
 const videoCard = $('#videoCard');
-const progressSection = $('#progressSection');
 const videoSection = $('#videoSection');
 const subtitleSection = $('#subtitleSection');
-const aiSection = $('#aiSection');
 const historyModal = $('#historyModal');
-const toggleAI = $('#toggleAI');
+
+// Tab elements
+const tabBtns = document.querySelectorAll('.ftab-btn');
 
 let currentTaskId = null;
 let selectedQuality = 0;
 let videoData = null;
 let eventSource = null;
+let currentTab = 'tab-download';
+
+// ==================== Tab 切换 ====================
+tabBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        if (tab === currentTab) return;
+        currentTab = tab;
+
+        tabBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        document.querySelectorAll('.ftab-panel').forEach(p => p.classList.add('hidden'));
+        const panel = document.getElementById(tab);
+        if (panel) panel.classList.remove('hidden');
+    });
+});
 
 // ==================== 按钮事件 ====================
 btnParse.addEventListener('click', parseUrl);
@@ -45,7 +62,6 @@ btnPaste.addEventListener('click', async () => {
             return;
         }
     } catch {}
-    // Fallback: focus input so user can Ctrl+V directly
     urlInput.focus();
     showToast('请使用 Ctrl+V / Cmd+V 粘贴链接');
 });
@@ -58,6 +74,12 @@ btnClear.addEventListener('click', () => {
 btnHistory.addEventListener('click', openHistory);
 
 btnDownload.addEventListener('click', startProcess);
+
+// Strategy & comment button listeners (dynamic, attach when video card shows)
+document.addEventListener('click', (e) => {
+    if (e.target.id === 'btnRunStrategy') runStrategyAnalysis();
+    if (e.target.id === 'btnFetchComments') fetchAndAnalyzeComments();
+});
 
 // ==================== 核心逻辑 ====================
 async function parseUrl() {
@@ -170,20 +192,18 @@ async function startProcess() {
         return;
     }
 
-    // 重置结果区
     videoSection.classList.add('hidden');
     subtitleSection.classList.add('hidden');
-    aiSection.classList.add('hidden');
 
-    // 启动进度区
-    progressSection.classList.remove('hidden');
+    const downloadProgress = $('#downloadProgress');
+    downloadProgress.classList.remove('hidden');
     $('#progressFill').style.width = '0%';
     $('#progressPercent').textContent = '0%';
     $('#progressMsg').textContent = '准备中...';
     $('#progressSteps').innerHTML = '';
 
     btnDownload.disabled = true;
-    btnDownload.textContent = '⏳ 处理中...';
+    btnDownload.textContent = '...';
 
     try {
         const resp = await fetch('/api/process', {
@@ -192,7 +212,7 @@ async function startProcess() {
             body: JSON.stringify({
                 url: urlInput.value.trim(),
                 quality_index: selectedQuality,
-                ai: toggleAI.checked,
+                ai: false,
             }),
         });
         const data = await resp.json();
@@ -410,7 +430,276 @@ function finishProcess() {
     }
     btnDownload.disabled = false;
     btnDownload.textContent = '📥 下载视频';
+    $('#downloadProgress').classList.add('hidden');
     currentTaskId = null;
+}
+
+function finishStrategy() {
+    if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+    }
+    if ($('#btnRunStrategy')) $('#btnRunStrategy').disabled = false;
+    if ($('#btnRunStrategy')) $('#btnRunStrategy').textContent = '🧠 开始 AI 策略分析';
+    currentTaskId = null;
+}
+
+// ==================== 策略分析（Tab 3） ====================
+async function runStrategyAnalysis() {
+    if (!videoData || !videoData.video_id) {
+        showToast('请先解析链接');
+        return;
+    }
+
+    const loading = $('#strategyLoading');
+    const content = $('#strategyContent');
+    const btn = $('#btnRunStrategy');
+
+    btn.disabled = true;
+    btn.textContent = '...';
+    loading.classList.remove('hidden');
+    content.innerHTML = '';
+
+    try {
+        const resp = await fetch('/api/process', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                url: urlInput.value.trim(),
+                quality_index: 0,
+                ai: true,
+            }),
+        });
+        const data = await resp.json();
+        if (!data.success) { showToast('启动失败'); btn.disabled = false; btn.textContent = '🧠 开始 AI 策略分析'; loading.classList.add('hidden'); return; }
+
+        currentTaskId = data.task_id;
+        const es = new EventSource('/api/stream/' + data.task_id);
+        eventSource = es;
+
+        es.addEventListener('ai_ready', (e) => {
+            const d = JSON.parse(e.data);
+            loading.classList.add('hidden');
+            if (d.error) {
+                content.innerHTML = '<p style="color:var(--danger);">' + (d.analysis || '分析失败') + '</p>';
+            } else {
+                const html = renderAIReport(d.analysis);
+                const rawText = d.analysis || '';
+                content.innerHTML = (html || simpleMarkdown(rawText)) + `
+                <div style="margin-top:16px;padding-top:14px;border-top:1px solid #2a2a3a;display:flex;gap:10px;">
+                    <button class="btn btn-sm" onclick="exportStrategyReport('pdf')">🖨️ 导出 PDF</button>
+                    <button class="btn btn-sm" onclick="exportStrategyReport('img')">🖼️ 导出图片</button>
+                </div>`;
+                content.querySelector('.markdown-body')?.style?.setProperty('max-height','none');
+            }
+            es.close();
+            finishStrategy();
+        });
+
+        es.addEventListener('progress', (e) => {
+            const d = JSON.parse(e.data);
+            if (d.step === 'ai') {
+                loading.querySelector('span') && (loading.querySelector('span').textContent = 'AI 正在深度分析中...');
+            }
+        });
+
+        es.addEventListener('error', (e) => {
+            try { const d = JSON.parse(e.data); showToast(d.message || '分析失败'); } catch(_) {}
+            loading.classList.add('hidden');
+            finishStrategy();
+            es.close();
+        });
+
+        es.onerror = () => { if (es.readyState === EventSource.CLOSED) { loading.classList.add('hidden'); finishStrategy(); } };
+
+    } catch (e) {
+        showToast('请求失败: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = '🧠 开始 AI 策略分析';
+        loading.classList.add('hidden');
+    }
+}
+
+function exportStrategyReport(format) {
+    const el = $('#strategyContent');
+    let html = el?.innerHTML || '';
+    if (!html || html.length < 50) { showToast('没有可导出内容'); return; }
+    const title = (videoData?.info?.desc || '分析报告').substring(0, 30);
+    doExportRaw(format, html, title);
+}
+
+async function doExportRaw(format, html, title) {
+    const endpoint = format === 'pdf' ? '/api/export/pdf' : '/api/export/image';
+    const ext = format === 'pdf' ? '.pdf' : '.png';
+    try {
+        showToast('正在生成...');
+        const resp = await fetch(endpoint, {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({html, title}),
+        });
+        if (!resp.ok) { const e = await resp.json(); throw new Error(e.error); }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = title + ext; a.click();
+        URL.revokeObjectURL(url);
+    } catch(e) { showToast('导出失败: ' + e.message); }
+}
+
+// ==================== 评论分析（Tab 2） ====================
+let _commentPollTimer = null;
+
+async function fetchAndAnalyzeComments() {
+    if (!videoData || !videoData.video_id) {
+        showToast('请先解析链接');
+        return;
+    }
+
+    const loading = $('#commentLoading');
+    const result = $('#commentResult');
+    const btn = $('#btnFetchComments');
+
+    btn.disabled = true;
+    btn.textContent = '...';
+    loading.classList.remove('hidden');
+    result.innerHTML = '';
+
+    try {
+        await fetch('/api/comments/fetch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ video_id: videoData.video_id }),
+        });
+        pollCommentResult(videoData.video_id);
+    } catch (e) {
+        showToast('请求失败: ' + e.message);
+        btn.disabled = false;
+        btn.textContent = '🔍 抓取评论并分析';
+        loading.classList.add('hidden');
+    }
+}
+
+async function pollCommentResult(videoId) {
+    const maxAttempts = 240;
+    let attempts = 0;
+    const loading = $('#commentLoading');
+    const result = $('#commentResult');
+    const btn = $('#btnFetchComments');
+
+    const poll = async () => {
+        if (attempts >= maxAttempts) {
+            loading.classList.add('hidden');
+            result.innerHTML = '<p style="color:var(--danger);">评论分析超时，请重试</p>';
+            btn.disabled = false;
+            btn.textContent = '🔍 抓取评论并分析';
+            return;
+        }
+        attempts++;
+        try {
+            const resp = await fetch('/api/comments/result/' + videoId);
+            const data = await resp.json();
+            if (data.status !== 'fetching') {
+                loading.classList.add('hidden');
+                renderCommentOnMain(data);
+                btn.disabled = false;
+                btn.textContent = '🔄 重新抓取';
+                return;
+            }
+        } catch (e) {}
+        _commentPollTimer = setTimeout(poll, 2000);
+    };
+    poll();
+}
+
+function renderCommentOnMain(data) {
+    const result = $('#commentResult');
+    const analysis = data.analysis || {};
+    const totalFetched = data.total_fetched || 0;
+    const C = ['#6c5ce7', '#ff6b9d', '#4ecdc4', '#ffa502', '#00d68f', '#45aaf2'];
+
+    // Sentiment
+    let sHtml = '';
+    if (analysis.sentiment) {
+        const s = analysis.sentiment;
+        const items = [
+            { label: '正面', pct: s.positive, count: s.positive_count||0, color: '#00d68f', icon: '😊' },
+            { label: '中性', pct: s.neutral, count: s.neutral_count||0, color: '#ffa502', icon: '😐' },
+            { label: '负面', pct: s.negative, count: s.negative_count||0, color: '#ff6b6b', icon: '😟' },
+        ];
+        sHtml = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;">' +
+            items.map(it => (
+                '<div style="text-align:center;padding:16px 10px;border-radius:12px;background:linear-gradient(135deg,'+it.color+'18,transparent);border:1px solid '+it.color+'33;">'+
+                '<div style="font-size:2rem;">'+it.icon+'</div>'+
+                '<div style="font-size:1.4rem;font-weight:700;color:'+it.color+';">'+it.pct+'%</div>'+
+                '<div style="font-size:0.78rem;color:var(--text-dim);">'+it.label+' ('+it.count+'条)</div></div>'
+            )).join('') + '</div>';
+    }
+
+    // Word cloud
+    let cloudHtml = '';
+    if (analysis.keywords && analysis.keywords.length > 0) {
+        const maxCount = analysis.keywords[0].count || 1;
+        const minCount = analysis.keywords[analysis.keywords.length-1].count || 1;
+        const palette = ['#a78bfa','#e879f9','#f472b6','#fb7185','#fbbf24','#34d399','#38bdf8','#818cf8','#c084fc','#fb923c','#4ade80'];
+        const rots = [-6,-2,0,0,3,-4,1,-5,-1,4,0,-3,2,5,-7];
+        cloudHtml = '<div style="background:radial-gradient(ellipse at center,rgba(108,92,231,0.08),rgba(15,15,19,0.3));border-left:3px solid #6c5ce7;border-radius:0 10px 10px 0;padding:22px 20px;margin-bottom:18px;border-top:1px solid #1e1e2e;border-right:1px solid #1e1e2e;border-bottom:1px solid #1e1e2e;">'+
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:18px;">'+
+            '<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(108,92,231,0.13);font-size:1rem;">☁️</span>'+
+            '<span style="font-size:1.05rem;font-weight:700;color:#6c5ce7;">评论词云</span></div>'+
+            '<div style="display:flex;flex-wrap:wrap;gap:10px 8px;align-items:center;justify-content:center;padding:16px 4px;min-height:120px;line-height:1.4;">'+
+            analysis.keywords.map((k,i) => {
+                const ratio = (k.count - minCount) / (maxCount - minCount || 1);
+                const size = 0.75 + ratio * 1.45;
+                const weight = ratio>0.6?700:ratio>0.25?600:400;
+                const color = ratio>0.5?'#f472b6':ratio>0.3?'#a78bfa':palette[i%palette.length];
+                const rot = rots[i%rots.length];
+                const bgAlpha = 0.08+ratio*0.14;
+                const glow = ratio>0.5?'0 0 16px '+color+'22, ':'';
+                return '<span style="display:inline-block;padding:'+(4+ratio*6).toFixed(0)+'px '+(12+ratio*14).toFixed(0)+'px;border-radius:'+(16+ratio*10).toFixed(0)+'px;font-size:'+size.toFixed(2)+'rem;font-weight:'+weight+';color:'+color+';background:'+color+Math.round(bgAlpha*255).toString(16).padStart(2,'0')+';border:1px solid '+color+'33;transform:rotate('+rot+'deg);box-shadow:'+glow+'0 1px 4px rgba(0,0,0,0.2);transition:all 0.25s cubic-bezier(0.4,0,0.2,1);cursor:default;white-space:nowrap;">'+escHTML(k.word)+'</span>';
+            }).join('')+'</div></div>';
+    }
+
+    // Summary
+    let sumHtml = '';
+    if (analysis.summary) {
+        sumHtml = '<div style="background:linear-gradient(135deg,rgba(255,107,157,0.06),transparent);border-left:3px solid #ff6b9d;border-radius:0 10px 10px 0;padding:18px;margin-bottom:8px;border-top:1px solid #1e1e2e;border-right:1px solid #1e1e2e;border-bottom:1px solid #1e1e2e;">'+
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">'+
+            '<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(255,107,157,0.13);font-size:1rem;">🧠</span>'+
+            '<span style="font-size:1.05rem;font-weight:700;color:#ff6b9d;">AI 综合总结</span></div>'+
+            '<div style="color:#b8b4c4;font-size:0.9rem;line-height:1.85;">'+
+            analysis.summary
+                .replace(/\*\*(.+?)\*\*/g,'<strong style="color:#ff6b9d;background:rgba(255,107,157,0.12);padding:1px 5px;border-radius:4px;">$1</strong>')
+                .replace(/^### (.+)$/gm,'<h3 style="font-size:0.95rem;color:#4ecdc4;margin:12px 0 6px;">$1</h3>')
+                .replace(/^## (.+)$/gm,'<h2 style="font-size:1rem;color:#ff6b9d;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid #2a2a3a;">$1</h2>')
+                .replace(/^[-*] (.+)$/gm,'<li style="margin-left:16px;margin-bottom:6px;color:#b8b4c4;">$1</li>')
+                .replace(/\n/g,'<br>')+'</div></div>';
+    }
+
+    result.innerHTML = `
+        <div class="comment-panel" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--card-border);">
+            <h4 style="font-size:0.95rem;color:var(--text);margin-bottom:14px;">💬 评论分析 <span style="color:var(--text-dim);font-weight:400;">(${totalFetched}条)</span></h4>
+            ${sHtml}${cloudHtml}${sumHtml}
+            <div style="margin-top:16px;padding-top:14px;border-top:1px solid #2a2a3a;display:flex;gap:10px;flex-wrap:wrap;">
+                <button class="btn btn-sm" onclick="exportMainComment('pdf')">🖨 导出 PDF</button>
+                <button class="btn btn-sm" onclick="exportMainComment('img')">🖼 导出图片</button>
+                <button class="btn btn-sm" onclick="downloadMainCommentCSV()">📊 导出评论数据</button>
+            </div>
+        </div>
+    `;
+}
+
+function exportMainComment(format) {
+    const content = $('#commentResult').innerHTML;
+    const title = (videoData?.info?.desc || '评论分析').substring(0,30);
+    doExportRaw(format, content, title);
+}
+
+function downloadMainCommentCSV() {
+    if (!videoData || !videoData.video_id) { showToast('未找到视频ID'); return; }
+    const a = document.createElement('a');
+    a.href = '/api/comments/export-data/' + videoData.video_id;
+    a.download = 'comments_' + videoData.video_id + '.csv';
+    a.click();
 }
 
 // ==================== 历史记录弹窗 ====================
@@ -580,11 +869,26 @@ function hideError() {
 function resetAll() {
     hideError();
     videoCard.classList.add('hidden');
-    progressSection.classList.add('hidden');
     videoSection.classList.add('hidden');
     subtitleSection.classList.add('hidden');
-    aiSection.classList.add('hidden');
-    $('#aiLoading').classList.add('hidden');
+    // Reset tabs
+    document.querySelectorAll('.ftab-panel').forEach(p => {
+        if (p.id !== 'tab-download') p.classList.add('hidden');
+        else p.classList.remove('hidden');
+    });
+    tabBtns.forEach(b => {
+        b.classList.remove('active');
+        if (b.dataset.tab === 'tab-download') b.classList.add('active');
+    });
+    currentTab = 'tab-download';
+    $('#downloadProgress').classList.add('hidden');
+    $('#btnFetchComments').disabled = false;
+    $('#btnFetchComments').textContent = '🔍 抓取评论并分析';
+    $('#commentResult').innerHTML = '';
+    $('#commentLoading').classList.add('hidden');
+    $('#strategyContent').innerHTML = '';
+    $('#strategyLoading').classList.add('hidden');
+    if ($('#btnRunStrategy')) { $('#btnRunStrategy').disabled = false; $('#btnRunStrategy').textContent = '🧠 开始 AI 策略分析'; }
     videoData = null;
     selectedQuality = 0;
     if (eventSource) {

@@ -55,34 +55,50 @@
                 </div>
             </div>
 
-            <!-- 清晰度选择 -->
-            <div id="qualitySection" class="quality-section">
-                <h4>🎬 清晰度选择</h4>
-                <div id="qualityOptions" class="quality-options"></div>
+            <!-- Feature Tabs -->
+            <div class="feature-tabs">
+                <button class="ftab-btn active" data-tab="tab-download">📥 视频下载</button>
+                <button class="ftab-btn" data-tab="tab-comments">💬 评论分析</button>
+                <button class="ftab-btn" data-tab="tab-strategy">🧠 内容策略</button>
             </div>
 
-            <!-- 操作按钮 -->
-            <div class="action-buttons">
-                <button id="btnDownload" class="btn btn-success">📥 下载视频</button>
-                <label class="toggle-label">
-                    <input type="checkbox" id="toggleAI" checked>
-                    <span>🧠 AI策略分析</span>
-                </label>
+            <!-- Tab 1: 视频下载 -->
+            <div id="tab-download" class="ftab-panel">
+                <div id="qualitySection" class="quality-section">
+                    <h4>🎬 清晰度选择</h4>
+                    <div id="qualityOptions" class="quality-options"></div>
+                </div>
+                <div class="action-buttons">
+                    <button id="btnDownload" class="btn btn-success">📥 下载视频</button>
+                </div>
+                <!-- 进度区（下载时显示） -->
+                <div id="downloadProgress" class="hidden" style="margin-top:12px;">
+                    <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+                    <div class="progress-info" style="margin-top:6px;">
+                        <span id="progressPercent">0%</span>
+                        <span id="progressMsg">准备中...</span>
+                    </div>
+                    <div id="progressSteps" class="progress-steps" style="margin-top:6px;"></div>
+                </div>
             </div>
-        </section>
 
-        <!-- 进度区 -->
-        <section id="progressSection" class="card hidden">
-            <div class="progress-container">
-                <div class="progress-bar">
-                    <div id="progressFill" class="progress-fill"></div>
+            <!-- Tab 2: 评论分析 -->
+            <div id="tab-comments" class="ftab-panel hidden">
+                <button id="btnFetchComments" class="btn btn-primary">🔍 抓取评论并分析</button>
+                <div id="commentLoading" class="hidden" style="padding:16px;display:flex;align-items:center;gap:10px;color:var(--text-dim);">
+                    <div class="spinner"></div> 正在抓取评论数据，请稍候...
                 </div>
-                <div class="progress-info">
-                    <span id="progressPercent">0%</span>
-                    <span id="progressMsg">准备中...</span>
-                </div>
+                <div id="commentResult"></div>
             </div>
-            <div id="progressSteps" class="progress-steps"></div>
+
+            <!-- Tab 3: 内容策略分析 -->
+            <div id="tab-strategy" class="ftab-panel hidden">
+                <button id="btnRunStrategy" class="btn btn-primary">🧠 开始 AI 策略分析</button>
+                <div id="strategyLoading" class="hidden" style="padding:16px;display:flex;align-items:center;gap:10px;color:var(--text-dim);">
+                    <div class="spinner"></div> AI 正在深度分析中，请稍候...
+                </div>
+                <div id="strategyContent"></div>
+            </div>
         </section>
 
         <!-- 视频播放区 -->
@@ -97,27 +113,6 @@
             <h3>📝 字幕/文案</h3>
             <div class="subtitle-source" id="subtitleSource"></div>
             <pre id="subtitleContent" class="subtitle-content"></pre>
-        </section>
-
-        <!-- AI分析区 -->
-        <section id="aiSection" class="card hidden">
-            <h3>
-                <svg width="22" height="22" viewBox="0 0 24 24" style="vertical-align:middle;margin-right:6px;">
-                    <path d="M12 2L14.4 9.2L15.06 11.38L17.23 10.7L19 10L15.5 13.5L13 16L12 20L9 14L5 9L8.5 8.5L12 2Z" fill="#6c5ce7" opacity="0.3"/>
-                    <path d="M12 2L12 20M12 2L9 14M12 2L14.4 9.2M12 20L15.5 13.5M12 20L8.5 8.5" stroke="url(#gemGrad)" stroke-width="1.5" stroke-linecap="round"/>
-                    <defs><linearGradient id="gemGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#6c5ce7"/><stop offset="100%" stop-color="#4ecdc4"/></linearGradient></defs>
-                </svg>
-                AI 内容策略分析
-            </h3>
-            <div id="aiLoading" class="ai-loading hidden">
-                <div class="spinner"></div>
-                <span>AI 正在深度分析中，请稍候...</span>
-            </div>
-            <div id="aiContent" class="ai-content markdown-body"></div>
-            <div id="aiExportBtns" class="hidden" style="margin-top:16px;padding-top:14px;border-top:1px solid #2a2a3a;display:flex;gap:10px;">
-                <button onclick="exportAnalysisPDF()" class="btn btn-sm" title="打印为PDF">🖨️ 导出 PDF</button>
-                <button onclick="exportAnalysisImage()" class="btn btn-sm" title="导出为图片">🖼️ 导出图片</button>
-            </div>
         </section>
 
         <!-- 历史记录弹窗 -->
