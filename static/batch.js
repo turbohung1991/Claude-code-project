@@ -44,7 +44,7 @@ async function startBatch() {
         const data = await resp.json();
 
         if (!data.success) {
-            showToast(data.error || '');
+            showToast(data.error || '创建失败');
             btnStart.disabled = false;
             btnStart.textContent = '批量下载';
             return;
@@ -59,7 +59,7 @@ async function startBatch() {
         });
 
         progressSection.classList.remove('hidden');
-        btnStart.textContent = '';
+        btnStart.textContent = '处理中...';
         btnPause.classList.remove('hidden');
 
         data.tasks.forEach(task => {
@@ -67,7 +67,7 @@ async function startBatch() {
         });
 
     } catch (e) {
-        showToast('' + e.message);
+        showToast('请求失败: ' + e.message);
         btnStart.disabled = false;
         btnStart.textContent = '批量下载';
     }
@@ -123,7 +123,7 @@ function createTaskCard(task) {
                 <div class="tc-url">${escHTML(task.url)}</div>
             </div>
             <div class="task-card-status">
-                <span class="status-badge queued" id="status-${task.task_id}"></span>
+                <span class="status-badge queued" id="status-${task.task_id}">排队中</span>
             </div>
         </div>
         <div class="task-card-progress">
@@ -131,8 +131,8 @@ function createTaskCard(task) {
             <div class="mini-text" id="miniText-${task.task_id}">...</div>
         </div>
         <div class="task-card-actions" id="actions-${task.task_id}">
-            <button class="btn btn-sm" onclick="retryTask('${task.task_id}')" id="btnRetry-${task.task_id}" style="display:none;"></button>
-            <button class="btn btn-sm" onclick="analyzeComments('${task.task_id}')" id="btnComment-${task.task_id}" style="display:none;"></button>
+            <button class="btn btn-sm" onclick="retryTask('${task.task_id}')" id="btnRetry-${task.task_id}" style="display:none;">重试</button>
+            <button class="btn btn-sm" onclick="analyzeComments('${task.task_id}')" id="btnComment-${task.task_id}" style="display:none;">评论分析</button>
         </div>
         <div id="commentPanel-${task.task_id}"></div>
     `;
@@ -146,11 +146,11 @@ function updateTaskCard(taskId, updates) {
 
     const badge = $('#status-' + taskId);
     const statusMap = {
-        'queued': ['', 'queued'],
-        'parsing': ['', 'parsing'],
-        'downloading': ['', 'downloading'],
-        'done': ['', 'done'],
-        'error': ['', 'error'],
+        'queued': ['排队中', 'queued'],
+        'parsing': ['解析中', 'parsing'],
+        'downloading': ['下载中', 'downloading'],
+        'done': ['已完成', 'done'],
+        'error': ['失败', 'error'],
     };
     const [label, cls] = statusMap[state.status] || [state.status, 'queued'];
     badge.textContent = label;
@@ -193,7 +193,7 @@ function updateGlobalProgress() {
     const total = tasks.length;
     const pct = total > 0 ? Math.round(done * 100 / total) : 0;
     globalProgressFill.style.width = pct + '%';
-    globalProgressText.textContent = done + ' / ' + total + '';
+    globalProgressText.textContent = done + ' / ' + total + ' 完成';
 }
 
 // ==================== SSE ====================
@@ -240,7 +240,7 @@ function connectTaskSSE(taskId) {
     });
 
     es.addEventListener('complete', () => {
-        updateTaskCard(taskId, { status: 'done', percent: 100, message: '' });
+        updateTaskCard(taskId, { status: 'done', percent: 100, message: '完成' });
         es.close();
     });
 
@@ -249,7 +249,7 @@ function connectTaskSSE(taskId) {
             const data = JSON.parse(e.data);
             updateTaskCard(taskId, { status: 'error', message: data.message || '' });
         } catch {
-            updateTaskCard(taskId, { status: 'error', message: '' });
+            updateTaskCard(taskId, { status: 'error', message: '处理失败' });
         }
         es.close();
     });
@@ -273,10 +273,10 @@ async function retryTask(taskId) {
 async function analyzeComments(taskId) {
     const state = taskStates[taskId];
     const videoId = state.videoId;
-    if (!videoId) { showToast('ID'); return; }
+    if (!videoId) { showToast('未找到视频ID'); return; }
 
     const panel = $('#commentPanel-' + taskId);
-    panel.innerHTML = '<div class="comment-panel"><div class="comment-loading"><div class="spinner"></div>......</div></div>';
+    panel.innerHTML = '<div class="comment-panel"><div class="comment-loading"><div class="spinner"></div>正在抓取评论并分析...</div></div>';
 
     try {
         const resp = await fetch('/api/comments/fetch', {
@@ -289,7 +289,7 @@ async function analyzeComments(taskId) {
         // Poll for results
         await pollCommentResult(taskId, videoId);
     } catch (e) {
-        panel.innerHTML = '<div class="comment-panel"><p style="color:var(--danger);">: ' + e.message + '</p></div>';
+        panel.innerHTML = '<div class="comment-panel"><p style="color:var(--danger);">评论分析失败: ' + e.message + '</p></div>';
     }
 }
 
@@ -324,15 +324,15 @@ function renderCommentResult(taskId, data) {
             <div class="comment-stats">
                 <div class="comment-stat positive">
                     <div class="cs-value">${s.positive}%</div>
-                    <div class="cs-label"> (${s.positive_count || 0})</div>
+                    <div class="cs-label">正面 (${s.positive_count || 0})</div>
                 </div>
                 <div class="comment-stat neutral">
                     <div class="cs-value">${s.neutral}%</div>
-                    <div class="cs-label"> (${s.neutral_count || 0})</div>
+                    <div class="cs-label">中性 (${s.neutral_count || 0})</div>
                 </div>
                 <div class="comment-stat negative">
                     <div class="cs-value">${s.negative}%</div>
-                    <div class="cs-label"> (${s.negative_count || 0})</div>
+                    <div class="cs-label">负面 (${s.negative_count || 0})</div>
                 </div>
             </div>
         `;
@@ -359,11 +359,11 @@ function renderCommentResult(taskId, data) {
 
     panel.innerHTML = `
         <div class="comment-panel">
-            <h4> (${totalFetched})</h4>
+            <h4>评论分析 (${totalFetched}条)</h4>
             ${sentimentHtml}
             ${kwHtml}
             ${summaryHtml}
-            ${hasMore ? `<button class="btn btn-sm" onclick="loadMoreComments('${taskId}')" style="margin-top:12px;"></button>` : ''}
+            ${hasMore ? `<button class="btn btn-sm" onclick="loadMoreComments('${taskId}')" style="margin-top:12px;">加载更多</button>` : ''}
         </div>
     `;
 }
@@ -378,9 +378,9 @@ async function loadMoreComments(taskId) {
         const data = await resp.json();
         taskStates[taskId].commentCursor = data.cursor;
         renderCommentResult(taskId, data);
-        showToast('');
+        showToast('已加载更多评论');
     } catch (e) {
-        showToast(': ' + e.message);
+        showToast('加载失败: ' + e.message);
     }
 }
 

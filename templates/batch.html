@@ -26,17 +26,17 @@
             <div class="batch-actions">
                 <button id="btnBatchStart" class="btn btn-primary">批量下载</button>
                 <div class="batch-global-controls">
-                    <button id="btnBatchPause" class="btn btn-sm hidden"></button>
-                    <button id="btnBatchResume" class="btn btn-sm hidden"></button>
-                    <button id="btnBatchClear" class="btn btn-sm"></button>
+                    <button id="btnBatchPause" class="btn btn-sm hidden">暂停</button>
+                    <button id="btnBatchResume" class="btn btn-sm hidden">继续</button>
+                    <button id="btnBatchClear" class="btn btn-sm">清除</button>
                 </div>
             </div>
         </section>
 
         <section id="batchProgressSection" class="batch-overall-progress hidden">
             <div class="progress-label">
-                <span></span>
-                <span id="globalProgressText">0 / 0 </span>
+                <span>总体进度</span>
+                <span id="globalProgressText">0 / 0 完成</span>
             </div>
             <div class="progress-bar">
                 <div id="globalProgressFill" class="progress-fill" style="width:0%;"></div>
