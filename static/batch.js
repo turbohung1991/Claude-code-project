@@ -409,12 +409,24 @@ function renderCommentResult(taskId, data) {
             ${sentimentHtml}
             ${cloudHtml}
             ${summaryHtml}
-            <div style="margin-top:16px;padding-top:14px;border-top:1px solid #2a2a3a;display:flex;gap:10px;">
+            <div style="margin-top:16px;padding-top:14px;border-top:1px solid #2a2a3a;display:flex;gap:10px;flex-wrap:wrap;">
                 <button class="btn btn-sm" onclick="exportCommentReport('${taskId}', 'pdf')" title="导出为PDF">🖨 导出 PDF</button>
                 <button class="btn btn-sm" onclick="exportCommentReport('${taskId}', 'img')" title="导出为图片">🖼 导出图片</button>
+                <button class="btn btn-sm" onclick="downloadCommentCSV('${taskId}')" title="导出评论原始数据">📊 导出评论数据</button>
             </div>
         </div>
     `;
+}
+
+function downloadCommentCSV(taskId) {
+    const state = taskStates[taskId];
+    const videoId = state && state.videoId;
+    if (!videoId) { showToast('未找到视频ID'); return; }
+    const a = document.createElement('a');
+    a.href = '/api/comments/export-data/' + videoId;
+    a.download = 'comments_' + videoId + '.csv';
+    a.click();
+    showToast('正在下载评论数据...');
 }
 
 async function exportCommentReport(taskId, format) {

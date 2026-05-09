@@ -80,11 +80,15 @@ class CommentAnalyzer:
         keywords = self._extract_keywords(all_comments)
         summary = self._ai_summary(all_comments, sentiment, keywords)
 
+        # Tag each comment with sentiment label
+        tagged_comments = self._tag_comments(all_comments)
+
         return {
             'video_id': video_id,
             'total_fetched': len(all_comments),
             'hot_comments': raw['hot_comments'],
             'latest_comments': raw['latest_comments'],
+            'tagged_comments': tagged_comments,
             'analysis': {
                 'sentiment': sentiment,
                 'keywords': keywords,
@@ -93,6 +97,28 @@ class CommentAnalyzer:
             'cursor': raw['cursor'],
             'has_more': raw['has_more'],
         }
+
+    def _tag_comments(self, comments: List[Dict]) -> List[Dict]:
+        """给每条评论打上情感标签"""
+        tagged = []
+        for c in comments:
+            text = c.get('content', '')
+            pos_score = sum(1 for w in POSITIVE_WORDS if w in text)
+            neg_score = sum(1 for w in NEGATIVE_WORDS if w in text)
+            if pos_score > neg_score:
+                label = '正面'
+            elif neg_score > pos_score:
+                label = '负面'
+            else:
+                label = '中性'
+            tagged.append({
+                'nickname': c.get('nickname', ''),
+                'content': c.get('content', ''),
+                'create_time': c.get('create_time', 0),
+                'digg_count': c.get('digg_count', 0),
+                'sentiment': label,
+            })
+        return tagged
 
     def _sentiment_analysis(self, comments: List[Dict]) -> Dict:
         """基于词典的情感分析"""

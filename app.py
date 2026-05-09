@@ -528,6 +528,51 @@ def comments_result(video_id):
     return jsonify(result)
 
 
+@app.route("/api/comments/export-data/<video_id>")
+def comments_export_data(video_id):
+    """导出评论原始数据为 CSV"""
+    data = _comment_cache.get(video_id)
+    if not data or data.get("error"):
+        return jsonify({"error": "无数据可导出"}), 404
+
+    tagged = data.get('tagged_comments', [])
+    if not tagged:
+        # Fallback: build from hot+lates comments without labels
+        all_comments = data.get('hot_comments', []) + data.get('latest_comments', [])
+        tagged = [
+            {'nickname': c.get('nickname', ''), 'content': c.get('content', ''),
+             'create_time': c.get('create_time', 0), 'digg_count': c.get('digg_count', 0),
+             'sentiment': ''}
+            for c in all_comments
+        ]
+
+    import csv
+    import io
+    from datetime import datetime
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(['用户昵称', '评价内容', '评价时间', '评论点赞数', '评论属性'])
+
+    for c in tagged:
+        ts = c.get('create_time', 0)
+        time_str = datetime.fromtimestamp(ts).strftime('%Y-%m-%d %H:%M:%S') if ts else ''
+        writer.writerow([
+            c.get('nickname', ''),
+            c.get('content', ''),
+            time_str,
+            c.get('digg_count', 0),
+            c.get('sentiment', ''),
+        ])
+
+    output.seek(0)
+    return Response(
+        output.getvalue(),
+        mimetype='text/csv',
+        headers={'Content-Disposition': f'attachment; filename=comments_{video_id}.csv'}
+    )
+
+
 @app.route("/api/comments/export/<video_id>")
 def comments_export(video_id):
     data = _comment_cache.get(video_id)
