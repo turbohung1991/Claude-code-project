@@ -502,10 +502,16 @@ def comments_fetch():
         return jsonify({"success": False, "error": "缺少 video_id"})
 
     def do_fetch():
+        import traceback
         try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
             result = comment_analyzer.fetch_and_analyze(video_id)
+            print(f"[comments] fetch complete: {result.get('total_fetched', 0)} comments")
             _comment_cache[video_id] = result
         except Exception as e:
+            print(f"[comments] fetch error: {e}")
+            traceback.print_exc()
             _comment_cache[video_id] = {"error": str(e), "total_fetched": 0}
 
     threading.Thread(target=do_fetch, daemon=True).start()

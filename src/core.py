@@ -643,6 +643,20 @@ class CommentFetcher:
                 await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
                 await page.wait_for_timeout(1500)
 
+            # 直接请求评论 API 触发拦截
+            if not comments_data:
+                try:
+                    comment_api = (
+                        f'https://www.douyin.com/aweme/v1/web/comment/list/'
+                        f'?aweme_id={video_id}&cursor=0&count=50&item_type=0'
+                    )
+                    await page.goto(comment_api, wait_until='domcontentloaded', timeout=15000)
+                    await page.wait_for_timeout(3000)
+                except Exception:
+                    pass
+
+            print(f"[CommentFetcher] captured {len(comments_data)} responses for {video_id}")
+
             if comments_data:
                 data = comments_data[0]
                 raw_comments = (
