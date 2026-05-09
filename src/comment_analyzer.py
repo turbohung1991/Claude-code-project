@@ -20,7 +20,11 @@ STOP_WORDS = set(
     '究竟 居然 明显 当然 自然 必然 或许 大概 也许 尤其 确实 的确 '
     '真 假 好 坏 棒 差 行 不行 厉害 牛 绝 赞 顶 踩 爱 恨 喜欢 '
     '讨厌 可爱 帅 美 丑 丑恶 善良 邪恶 聪明 笨 好棒 好厉害 牛逼 '
-    'yyds 绝绝子'.split()
+    'yyds 绝绝子 '
+    # 补充停用词
+    '视频 一下 就是 根据 大家 觉得 感觉 这个 可以 还是 为什么 因为 所以 '
+    '虽然 但是 如果 应该 一定 真的 其实 怎么 什么 哪里 没有 已经 也是 '
+    '可能 比如 而且 或者 不过 只是 因此 然而 首先 其次 最后 '.split()
 )
 
 # 情感词典
@@ -150,28 +154,29 @@ class CommentAnalyzer:
         """基于 jieba 分词 + TF 的关键词提取"""
         import jieba
 
-        # 表情包模式（过滤抖音括号表情：捂脸/微笑/玫瑰/笑哭/送花/流泪 等）
-        EMOJI_PATTERN = re.compile(r'\[[一-鿿\w]+\]')
+        # 表情包模式（过滤抖音括号表情）
+        EMOJI_PATTERN = re.compile(r'\[[^\[\]]+\]')
 
         word_freq = {}
         for c in comments:
             text = c.get('content', '')
-            # 移除表情包
             text = EMOJI_PATTERN.sub('', text)
-            # 移除 URL、纯数字、标点
             text = re.sub(r'https?://\S+', '', text)
-            text = re.sub(r'[@#]\S+', '', text)
+            text = re.sub(r'[@#＠＃]\S+', '', text)
+            text = re.sub(r'[0-9]+', '', text)
 
-            # jieba 分词
+            # jieba 分词（精确模式）
             words = jieba.cut(text)
             for w in words:
                 w = w.strip()
-                if len(w) >= 2 and w not in STOP_WORDS and not w.isdigit():
+                # 过滤：单字、纯数字、纯标点、停用词、纯英文
+                if (len(w) >= 2 and w not in STOP_WORDS
+                        and not w.isdigit()
+                        and not re.match(r'^[a-zA-Z]+$', w)
+                        and not re.match(r'^[^\w]+$', w)):
                     word_freq[w] = word_freq.get(w, 0) + 1
 
-        # 按频次排序
         sorted_words = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)
-        # 取 top_n，但过滤掉频次太低的
         result = [{'word': w, 'count': int(c)} for w, c in sorted_words[:top_n * 2]
                   if c >= 2][:top_n]
         return result
