@@ -223,6 +223,7 @@ function connectTaskSSE(taskId) {
     es.addEventListener('meta', (e) => {
         const data = JSON.parse(e.data);
         updateTaskCard(taskId, {
+            videoId: data.video_id,
             desc: data.desc,
             author: data.author,
             cover: data.cover,
