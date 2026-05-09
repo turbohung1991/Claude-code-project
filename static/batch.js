@@ -354,18 +354,21 @@ function renderCommentResult(taskId, data) {
     let cloudHtml = '';
     if (analysis.keywords && analysis.keywords.length > 0) {
         const maxCount = analysis.keywords[0].count || 1;
-        cloudHtml = '<div style="background:linear-gradient(135deg,rgba(108,92,231,0.06),transparent);border-left:3px solid #6c5ce7;border-radius:0 10px 10px 0;padding:18px 18px;margin-bottom:18px;border-top:1px solid #1e1e2e;border-right:1px solid #1e1e2e;border-bottom:1px solid #1e1e2e;">' +
-            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">' +
+        const rotations = [-8, -4, 0, 0, 3, 7, -3, 5, -6, 2, -2, 6, -5, 4, -7];
+        cloudHtml = '<div style="background:linear-gradient(135deg,rgba(108,92,231,0.06),transparent);border-left:3px solid #6c5ce7;border-radius:0 10px 10px 0;padding:20px 18px;margin-bottom:18px;border-top:1px solid #1e1e2e;border-right:1px solid #1e1e2e;border-bottom:1px solid #1e1e2e;">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">' +
             '<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(108,92,231,0.13);font-size:1rem;">☁️</span>' +
             '<span style="font-size:1.05rem;font-weight:700;color:#6c5ce7;">评论词云</span>' +
             '</div>' +
-            '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;padding:8px 0;">' +
+            '<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:center;padding:12px 8px;min-height:80px;">' +
             analysis.keywords.map((k, i) => {
                 const ratio = k.count / maxCount;
-                const size = 0.85 + ratio * 1.6;
+                const size = 0.8 + ratio * 1.8;
                 const color = C[i % C.length];
-                const opacity = 0.5 + ratio * 0.5;
-                return '<span style="display:inline-block;padding:4px 14px;border-radius:20px;font-size:' + size.toFixed(1) + 'rem;font-weight:' + (ratio > 0.4 ? '700' : '500') + ';color:' + color + ';background:' + color + '18;border:1px solid ' + color + '33;opacity:' + opacity.toFixed(2) + ';transition:transform 0.15s;cursor:default;">' + escHTML(k.word) + '</span>';
+                const rot = rotations[i % rotations.length];
+                const weight = ratio > 0.5 ? '700' : ratio > 0.3 ? '600' : '400';
+                const shadow = ratio > 0.4 ? '0 2px 8px ' + color + '33' : 'none';
+                return '<span style="display:inline-block;padding:' + (4 + ratio * 6).toFixed(0) + 'px ' + (10 + ratio * 14).toFixed(0) + 'px;border-radius:24px;font-size:' + size.toFixed(1) + 'rem;font-weight:' + weight + ';color:' + color + ';background:linear-gradient(135deg,' + color + '18,' + color + '08);border:1.5px solid ' + color + '44;transform:rotate(' + rot + 'deg);box-shadow:' + shadow + ';transition:transform 0.2s,box-shadow 0.2s;cursor:default;' + (ratio > 0.5 ? 'letter-spacing:0.02em;' : '') + '" onmouseover="this.style.transform=\'rotate(0deg) scale(1.1)\';this.style.boxShadow=\'0 4px 16px ' + color + '44\';this.style.zIndex=1;" onmouseout="this.style.transform=\'rotate(' + rot + 'deg) scale(1)\';this.style.boxShadow=\'' + shadow + '\';this.style.zIndex=0;">' + escHTML(k.word) + '</span>';
             }).join('') +
             '</div></div>';
     }
@@ -388,14 +391,91 @@ function renderCommentResult(taskId, data) {
             '</div></div>';
     }
 
+    // Store for export
+    window._commentExportData = window._commentExportData || {};
+    window._commentExportData[taskId] = {
+        totalFetched: totalFetched,
+        sentimentHtml: sentimentHtml,
+        cloudHtml: cloudHtml,
+        summaryHtml: summaryHtml,
+        sentiment: analysis.sentiment,
+        keywords: analysis.keywords,
+        summary: analysis.summary,
+    };
+
     panel.innerHTML = `
         <div class="comment-panel">
             <h4 style="font-size:0.95rem;color:var(--text);margin-bottom:14px;">💬 评论分析 <span style="color:var(--text-dim);font-weight:400;">(${totalFetched}条)</span></h4>
             ${sentimentHtml}
             ${cloudHtml}
             ${summaryHtml}
+            <div style="margin-top:16px;padding-top:14px;border-top:1px solid #2a2a3a;display:flex;gap:10px;">
+                <button class="btn btn-sm" onclick="exportCommentReport('${taskId}', 'pdf')" title="导出为PDF">🖨 导出 PDF</button>
+                <button class="btn btn-sm" onclick="exportCommentReport('${taskId}', 'img')" title="导出为图片">🖼 导出图片</button>
+            </div>
         </div>
     `;
+}
+
+async function exportCommentReport(taskId, format) {
+    const data = window._commentExportData && window._commentExportData[taskId];
+    if (!data) { showToast('无导出数据'); return; }
+
+    const sentiment = data.sentiment || {};
+    const keywords = data.keywords || [];
+    const summary = data.summary || '';
+
+    // Build rich HTML for export
+    const kwHtml = keywords.map((k, i) => {
+        const colors = ['#6c5ce7', '#ff6b9d', '#4ecdc4', '#ffa502', '#00d68f', '#45aaf2'];
+        const c = colors[i % colors.length];
+        const ratio = keywords.length > 0 ? k.count / keywords[0].count : 1;
+        const size = 12 + Math.round(ratio * 16);
+        return `<span style="display:inline-block;padding:4px 12px;margin:4px;border-radius:16px;font-size:${size}px;color:${c};background:${c}18;border:1px solid ${c}33;">${k.word}</span>`;
+    }).join('');
+
+    const title = '评论分析报告';
+
+    const html = `<div style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0f0f13;color:#e0e0e0;padding:40px;line-height:1.8;">
+<h2 style="color:#6c5ce7;border-bottom:2px solid #2a2a3a;padding-bottom:12px;">💬 ${title}</h2>
+<p style="color:#888;">评论总数: ${data.totalFetched} 条</p>
+
+<h3 style="color:#ff6b9d;margin-top:24px;">情感分布</h3>
+<table style="width:100%;border-collapse:collapse;margin:16px 0;">
+<tr>
+<td style="padding:16px;text-align:center;background:rgba(0,214,143,0.08);border:1px solid #2a2a3a;border-radius:8px 0 0 8px;"><div style="font-size:2rem;">😊</div><div style="font-size:1.4rem;font-weight:700;color:#00d68f;">${sentiment.positive || 0}%</div><div style="font-size:0.8rem;color:#888;">正面 (${sentiment.positive_count || 0})</div></td>
+<td style="padding:16px;text-align:center;background:rgba(255,165,2,0.08);border:1px solid #2a2a3a;"><div style="font-size:2rem;">😐</div><div style="font-size:1.4rem;font-weight:700;color:#ffa502;">${sentiment.neutral || 0}%</div><div style="font-size:0.8rem;color:#888;">中性 (${sentiment.neutral_count || 0})</div></td>
+<td style="padding:16px;text-align:center;background:rgba(255,107,107,0.08);border:1px solid #2a2a3a;border-radius:0 8px 8px 0;"><div style="font-size:2rem;">😟</div><div style="font-size:1.4rem;font-weight:700;color:#ff6b6b;">${sentiment.negative || 0}%</div><div style="font-size:0.8rem;color:#888;">负面 (${sentiment.negative_count || 0})</div></td>
+</tr>
+</table>
+
+<h3 style="color:#6c5ce7;margin-top:24px;">☁️ 评论词云</h3>
+<div style="padding:16px;text-align:center;">${kwHtml}</div>
+
+<h3 style="color:#ff6b9d;margin-top:24px;">🧠 AI 综合总结</h3>
+<div style="padding:16px;background:#111119;border-radius:10px;border:1px solid #2a2a3a;">${summary.replace(/\n/g, '<br>').replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</div>
+</div>`;
+
+    const endpoint = format === 'pdf' ? '/api/export/pdf' : '/api/export/image';
+    try {
+        showToast('正在导出...');
+        const resp = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ html, title }),
+        });
+        if (!resp.ok) { const e = await resp.json(); throw new Error(e.error); }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = title + (format === 'pdf' ? '.pdf' : '.png');
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('导出完成');
+    } catch (e) {
+        showToast('导出失败: ' + e.message);
+    }
 }
 
 

@@ -168,34 +168,51 @@ class CommentAnalyzer:
 
         kw_str = ', '.join([k['word'] for k in keywords[:10]])
 
-        prompt = f"""你是一位专业的社交媒体数据分析师。请根据以下抖音评论数据，生成简洁的评论分析报告。
+        prompt = f"""你是一位专业的社交媒体数据分析师。请根据以下抖音评论数据，生成结构化的评论分析报告。
 
 ## 数据概览
 - 评论总数: {len(comments)}
 - 情感分布: 正面{sentiment['positive']}% / 中性{sentiment['neutral']}% / 负面{sentiment['negative']}%
 - 高频关键词: {kw_str}
 
-## 代表性评论
+## 代表性评论（高赞 + 极端情感）
 {comment_samples}
 
-## 要求
-请从以下角度分析（200字以内）：
-1. **用户画像**: 评论者是什么样的人群？
-2. **核心观点**: 大家在讨论什么主要话题？
-3. **争议点**: 有哪些不同意见？
-4. **购买/行动意向**: 是否有转化潜力？
+## 输出格式（严格按此结构，每段用 ## 标题）:
 
-请用中文输出，简洁有力。"""
+## 用户画像
+- 年龄层、职业背景、兴趣特征（2-3句话）
+- 评分（1-10）：给出典型性评分
+
+## 核心话题
+- TOP 3 讨论焦点，每条一句话概括
+- 附带 1-2 条代表性评论原文佐证
+
+## 情感分析
+- 正面情绪来源（用户满意什么）
+- 负面情绪来源（用户不满什么）
+- 中性评论的倾向性判断（偏正面/偏负面/纯中立）
+
+## 争议与分歧
+- 是否存在两极分化的话题
+- 不同观点各有什么道理
+
+## 商业洞察
+- 用户购买/行动意向强度（强/中/弱）
+- 转化机会点在哪些方面
+- 内容创作者可优化的方向建议
+
+请用中文输出，350-500字，要有数据支撑和可执行的建议。"""
 
         try:
             response = self.client.chat.completions.create(
                 model='deepseek-chat',
                 messages=[
-                    {'role': 'system', 'content': '你是一位专业的社交媒体数据分析师。'},
+                    {'role': 'system', 'content': '你是一位专业的社交媒体数据分析师，输出必须严格按指定格式，结构清晰，有数据有洞察。'},
                     {'role': 'user', 'content': prompt},
                 ],
                 temperature=0.7,
-                max_tokens=600,
+                max_tokens=1200,
             )
             return response.choices[0].message.content
         except Exception as e:
