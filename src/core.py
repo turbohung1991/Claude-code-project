@@ -622,10 +622,14 @@ class CommentFetcher:
                 page = context.new_page()
 
                 comments_data = []
+                all_api_urls = []
 
                 def on_response(resp):
                     url = resp.url
-                    if 'comment/list' in url and not comments_data:
+                    # 记录所有疑似 API 的请求
+                    if any(k in url for k in ('aweme', 'comment', 'api', 'feed')):
+                        all_api_urls.append(url)
+                    if 'comment' in url and not comments_data:
                         try:
                             body = resp.json()
                             if body.get('comments') or body.get('comment_list'):
@@ -661,7 +665,10 @@ class CommentFetcher:
                     except Exception:
                         pass
 
-                print(f"[CommentFetcher] captured {len(comments_data)} responses for {video_id}",
+                print(f"[CommentFetcher] API URLs seen: {len(all_api_urls)}", flush=True)
+                for u in all_api_urls[:20]:
+                    print(f"  {u}", flush=True)
+                print(f"[CommentFetcher] captured {len(comments_data)} comment responses for {video_id}",
                       flush=True)
 
                 if comments_data:
