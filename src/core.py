@@ -579,3 +579,183 @@ class DouyinParser:
         if bit_rate > 1_000_000:
             return f"标清 ({bit_rate // 1_000_000}Mbps)"
         return gear_name or "未知清晰度"
+
+
+# ================================================================
+# 评论抓取器
+# ================================================================
+
+class CommentFetcher:
+    """抖音评论抓取器 — 基于 Playwright API 拦截"""
+
+    @classmethod
+    async def fetch_comments(
+        cls, video_id: str, max_hot: int = 200, max_latest: int = 100
+    ) -> Dict:
+        """抓取评论。返回 hot_comments, latest_comments, total_fetched, cursor, has_more"""
+        result = {
+            'video_id': video_id,
+            'hot_comments': [],
+            'latest_comments': [],
+            'total_fetched': 0,
+            'cursor': 0,
+            'has_more': False,
+        }
+
+        pw, browser = await DouyinParser._launch_browser()
+        try:
+            context = await browser.new_context(
+                user_agent=(
+                    'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) '
+                    'AppleWebKit/605.1.15 (KHTML, like Gecko) '
+                    'Version/16.0 Mobile/15E148 Safari/604.1'
+                ),
+                viewport={'width': 390, 'height': 844},
+                locale='zh-CN',
+            )
+            page = await context.new_page()
+
+            comments_data = []
+
+            async def on_response(resp):
+                nonlocal comments_data
+                url = resp.url
+                if 'comment/list' in url and not comments_data:
+                    try:
+                        body = await resp.json()
+                        if body.get('comments') or body.get('comment_list'):
+                            comments_data.append(body)
+                    except Exception:
+                        pass
+
+            page.on('response', on_response)
+
+            await page.goto(
+                'https://www.douyin.com/', wait_until='domcontentloaded', timeout=20000
+            )
+            await page.wait_for_timeout(2000)
+
+            video_url = f'https://www.douyin.com/video/{video_id}'
+            await page.goto(video_url, wait_until='domcontentloaded', timeout=20000)
+            await page.wait_for_timeout(3000)
+
+            for _ in range(3):
+                await page.evaluate('window.scrollTo(0, document.body.scrollHeight)')
+                await page.wait_for_timeout(1500)
+
+            if comments_data:
+                data = comments_data[0]
+                raw_comments = (
+                    data.get('comments', []) or
+                    data.get('comment_list', []) or
+                    data.get('data', {}).get('comments', [])
+                )
+
+                hot, latest = [], []
+                for c in raw_comments:
+                    item = cls._normalize_comment(c)
+                    if not item['content']:
+                        continue
+                    if c.get('is_hot') or c.get('is_hot_comment'):
+                        hot.append(item)
+                    else:
+                        latest.append(item)
+
+                hot = hot[:max_hot]
+                latest = latest[:max_latest]
+
+                result['hot_comments'] = hot
+                result['latest_comments'] = latest
+                result['total_fetched'] = len(hot) + len(latest)
+                if latest:
+                    result['cursor'] = latest[-1].get('create_time', 0)
+                    result['has_more'] = len(latest) >= max_latest
+
+            await context.close()
+        finally:
+            await browser.close()
+            await pw.stop()
+
+        return result
+
+    @classmethod
+    async def load_more(cls, video_id: str, cursor: int, count: int = 50) -> Dict:
+        """翻页加载更多评论"""
+        result = {
+            'comments': [],
+            'cursor': cursor,
+            'has_more': False,
+        }
+
+        pw, browser = await DouyinParser._launch_browser()
+        try:
+            context = await browser.new_context(
+                user_agent=(
+                    'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) '
+                    'AppleWebKit/605.1.15 (KHTML, like Gecko) '
+                    'Version/16.0 Mobile/15E148 Safari/604.1'
+                ),
+                viewport={'width': 390, 'height': 844},
+                locale='zh-CN',
+            )
+            page = await context.new_page()
+
+            captured = []
+
+            async def on_response(resp):
+                if 'comment/list' in resp.url and not captured:
+                    try:
+                        body = await resp.json()
+                        captured.append(body)
+                    except Exception:
+                        pass
+
+            page.on('response', on_response)
+
+            api_url = (
+                f'https://www.douyin.com/aweme/v1/web/comment/list/'
+                f'?aweme_id={video_id}&cursor={cursor}&count={count}&item_type=0'
+            )
+            await page.goto(api_url, wait_until='domcontentloaded', timeout=15000)
+            await page.wait_for_timeout(3000)
+
+            if captured:
+                data = captured[0]
+                raw = (
+                    data.get('comments', []) or
+                    data.get('comment_list', []) or
+                    data.get('data', {}).get('comments', [])
+                )
+                result['comments'] = [
+                    cls._normalize_comment(c) for c in raw
+                    if cls._normalize_comment(c)['content']
+                ]
+                result['cursor'] = data.get('cursor', 0)
+                result['has_more'] = data.get('has_more', 0) == 1
+
+            await context.close()
+        finally:
+            await browser.close()
+            await pw.stop()
+
+        return result
+
+    @staticmethod
+    def _normalize_comment(c: Dict) -> Dict:
+        """统一评论字段格式"""
+        user = c.get('user', {}) or {}
+        return {
+            'cid': c.get('cid', ''),
+            'nickname': user.get('nickname', '匿名'),
+            'avatar': user.get('avatar_thumb', {}).get('url_list', [''])[0] or '',
+            'content': (c.get('text', '') or c.get('content', '')).strip(),
+            'digg_count': c.get('digg_count', 0) or 0,
+            'reply_count': c.get('reply_comment_total', 0) or 0,
+            'create_time': c.get('create_time', 0) or 0,
+            'is_hot': bool(
+                c.get('is_hot') or
+                c.get('is_hot_comment') or
+                c.get('label_type') or
+                (c.get('digg_count', 0) >= 100)
+            ),
+        }
