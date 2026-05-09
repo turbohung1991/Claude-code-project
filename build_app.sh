@@ -42,58 +42,28 @@ rsync -a --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' \
       "$PROJECT_DIR/" "$RESOURCES/project/"
 
 # 创建可执行入口（Python 脚本）
-cat > "$MACOS_DIR/$APP_NAME" << 'PYEOF'
-#!/usr/bin/python3
-"""macOS .app 启动器"""
-import subprocess
-import os
-import sys
-import webbrowser
-import threading
-import time
+cat > "$MACOS_DIR/$APP_NAME" << 'SHEOF'
+#!/bin/bash
+# AI智能工具箱启动器 — 后台启动服务后立即退出
+DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT="$DIR/../Resources/project"
+PORT=7860
 
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_DIR = os.path.join(os.path.dirname(SCRIPT_DIR), 'Resources', 'project')
+# 杀旧进程
+lsof -ti:$PORT | xargs kill -9 2>/dev/null
+sleep 1
 
-os.chdir(PROJECT_DIR)
-sys.path.insert(0, PROJECT_DIR)
+# 后台启动
+cd "$PROJECT"
+nohup /usr/bin/python3 app.py > /tmp/vibecoding.log 2>&1 &
 
-# 加载 .env
-try:
-    from dotenv import load_dotenv
-    load_dotenv(os.path.join(os.path.expanduser('~'), '.vibecoding', '.env'))
-except ImportError:
-    pass
-
-# 清理旧进程
-PORT = int(os.environ.get('PORT', 7860))
-try:
-    result = subprocess.run(
-        ['lsof', '-ti', f':{PORT}'], capture_output=True, text=True
-    )
-    for pid in result.stdout.strip().split('\n'):
-        if pid:
-            os.kill(int(pid), 9)
-    time.sleep(1)
-except Exception:
-    pass
-
-from app import app
-
-def open_browser():
-    for _ in range(30):
-        try:
-            import requests as req
-            req.get(f'http://localhost:{PORT}', timeout=1)
-            break
-        except Exception:
-            time.sleep(1)
-    webbrowser.open(f'http://localhost:{PORT}')
-
-print(f'AI智能工具箱 → http://localhost:{PORT}', flush=True)
-threading.Thread(target=open_browser, daemon=True).start()
-app.run(host='0.0.0.0', port=PORT, debug=False, threaded=True)
-PYEOF
+# 等待并打开浏览器
+for i in $(seq 1 20); do
+    sleep 1
+    curl -s -o /dev/null http://localhost:$PORT && break
+done
+open "http://localhost:$PORT"
+SHEOF
 chmod +x "$MACOS_DIR/$APP_NAME"
 
 # 创建 Info.plist
