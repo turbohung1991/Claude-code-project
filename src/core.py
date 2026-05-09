@@ -590,9 +590,9 @@ class CommentFetcher:
 
     @classmethod
     def fetch_comments_sync(
-        cls, video_id: str, max_hot: int = 200, max_latest: int = 100
+        cls, video_id: str, max_comments: int = 500
     ) -> Dict:
-        """同步抓取评论 — 在 Playwright 页面上下文中调用 fetch"""
+        """同步抓取评论 — 在 Playwright 页面上下文中调用 fetch，自动翻页直到达到上限"""
         from playwright.sync_api import sync_playwright
 
         result = {
@@ -643,10 +643,8 @@ class CommentFetcher:
                 all_latest = []
                 cursor = 0
                 has_more = True
-                max_pages = 10
 
-                for _ in range(max_pages):
-                    # 在页面上下文中执行 fetch，自动带 cookies + 签名
+                while len(all_hot) + len(all_latest) < max_comments:
                     js_code = f'''
                     async () => {{
                         const url = 'https://www.douyin.com/aweme/v1/web/comment/list/'
@@ -685,8 +683,8 @@ class CommentFetcher:
             finally:
                 browser.close()
 
-        result['hot_comments'] = all_hot[:max_hot]
-        result['latest_comments'] = all_latest[:max_latest]
+        result['hot_comments'] = all_hot[:max_comments]
+        result['latest_comments'] = all_latest[:max_comments]
         result['total_fetched'] = len(all_hot) + len(all_latest)
         if all_latest:
             result['cursor'] = all_latest[-1].get('create_time', 0)
@@ -695,15 +693,6 @@ class CommentFetcher:
         print(f"[CommentFetcher] total: {result['total_fetched']} comments for {video_id}",
               flush=True)
         return result
-
-    @classmethod
-    def load_more_sync(cls, video_id: str, cursor: int, count: int = 50) -> Dict:
-        """翻页加载 — 复用已有缓存的评论，不需要新 browser"""
-        return {
-            'comments': [],
-            'cursor': cursor,
-            'has_more': False,
-        }
 
     @staticmethod
     def _normalize_comment(c: Dict) -> Dict:

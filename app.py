@@ -528,17 +528,6 @@ def comments_result(video_id):
     return jsonify(result)
 
 
-@app.route("/api/comments/load-more")
-def comments_load_more():
-    video_id = request.args.get("video_id", "")
-    cursor = int(request.args.get("cursor", 0))
-    count = int(request.args.get("count", 50))
-    existing = _comment_cache.get(video_id, {})
-    result = comment_analyzer.load_more_and_analyze(video_id, cursor, existing, count)
-    _comment_cache[video_id] = result
-    return jsonify(result)
-
-
 @app.route("/api/comments/export/<video_id>")
 def comments_export(video_id):
     data = _comment_cache.get(video_id)

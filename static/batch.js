@@ -321,79 +321,83 @@ async function pollCommentResult(taskId, videoId) {
         }
         await new Promise(r => setTimeout(r, 2000));
     }
-    $('#commentPanel-' + taskId).innerHTML = '<div class="comment-panel"><p style="color:var(--danger);"></p></div>';
+    $('#commentPanel-' + taskId).innerHTML = '<div class="comment-panel"><p style="color:var(--danger);">评论分析超时，请重试</p></div>';
 }
 
 function renderCommentResult(taskId, data) {
     const panel = $('#commentPanel-' + taskId);
     const analysis = data.analysis || {};
+    const totalFetched = data.total_fetched || 0;
+    const C = ['#6c5ce7', '#ff6b9d', '#4ecdc4', '#ffa502', '#00d68f', '#45aaf2'];
 
+    // ---- Sentiment cards ----
     let sentimentHtml = '';
     if (analysis.sentiment) {
         const s = analysis.sentiment;
-        sentimentHtml = `
-            <div class="comment-stats">
-                <div class="comment-stat positive">
-                    <div class="cs-value">${s.positive}%</div>
-                    <div class="cs-label">正面 (${s.positive_count || 0})</div>
-                </div>
-                <div class="comment-stat neutral">
-                    <div class="cs-value">${s.neutral}%</div>
-                    <div class="cs-label">中性 (${s.neutral_count || 0})</div>
-                </div>
-                <div class="comment-stat negative">
-                    <div class="cs-value">${s.negative}%</div>
-                    <div class="cs-label">负面 (${s.negative_count || 0})</div>
-                </div>
-            </div>
-        `;
-    }
-
-    let kwHtml = '';
-    if (analysis.keywords && analysis.keywords.length > 0) {
-        kwHtml = '<div class="comment-keywords">' +
-            analysis.keywords.map(k =>
-                '<span class="comment-keyword">' + escHTML(k.word) + ' (' + k.count + ')</span>'
-            ).join('') +
+        const items = [
+            { label: '正面', pct: s.positive, count: s.positive_count || 0, color: '#00d68f', icon: '😊' },
+            { label: '中性', pct: s.neutral, count: s.neutral_count || 0, color: '#ffa502', icon: '😐' },
+            { label: '负面', pct: s.negative, count: s.negative_count || 0, color: '#ff6b6b', icon: '😟' },
+        ];
+        sentimentHtml = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px;">' +
+            items.map(it => (
+                '<div style="text-align:center;padding:16px 10px;border-radius:12px;background:linear-gradient(135deg,' + it.color + '18,transparent);border:1px solid ' + it.color + '33;">' +
+                '<div style="font-size:2rem;">' + it.icon + '</div>' +
+                '<div style="font-size:1.4rem;font-weight:700;color:' + it.color + ';">' + it.pct + '%</div>' +
+                '<div style="font-size:0.78rem;color:var(--text-dim);">' + it.label + ' (' + it.count + '条)</div>' +
+                '</div>'
+            )).join('') +
             '</div>';
     }
 
+    // ---- Word cloud ----
+    let cloudHtml = '';
+    if (analysis.keywords && analysis.keywords.length > 0) {
+        const maxCount = analysis.keywords[0].count || 1;
+        cloudHtml = '<div style="background:linear-gradient(135deg,rgba(108,92,231,0.06),transparent);border-left:3px solid #6c5ce7;border-radius:0 10px 10px 0;padding:18px 18px;margin-bottom:18px;border-top:1px solid #1e1e2e;border-right:1px solid #1e1e2e;border-bottom:1px solid #1e1e2e;">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">' +
+            '<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(108,92,231,0.13);font-size:1rem;">☁️</span>' +
+            '<span style="font-size:1.05rem;font-weight:700;color:#6c5ce7;">评论词云</span>' +
+            '</div>' +
+            '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;padding:8px 0;">' +
+            analysis.keywords.map((k, i) => {
+                const ratio = k.count / maxCount;
+                const size = 0.85 + ratio * 1.6;
+                const color = C[i % C.length];
+                const opacity = 0.5 + ratio * 0.5;
+                return '<span style="display:inline-block;padding:4px 14px;border-radius:20px;font-size:' + size.toFixed(1) + 'rem;font-weight:' + (ratio > 0.4 ? '700' : '500') + ';color:' + color + ';background:' + color + '18;border:1px solid ' + color + '33;opacity:' + opacity.toFixed(2) + ';transition:transform 0.15s;cursor:default;">' + escHTML(k.word) + '</span>';
+            }).join('') +
+            '</div></div>';
+    }
+
+    // ---- AI Summary ----
     let summaryHtml = '';
     if (analysis.summary) {
-        summaryHtml = '<div class="comment-summary">' +
-            analysis.summary.replace(/\n/g, '<br>') +
-            '</div>';
+        summaryHtml = '<div style="background:linear-gradient(135deg,rgba(255,107,157,0.06),transparent);border-left:3px solid #ff6b9d;border-radius:0 10px 10px 0;padding:18px;margin-bottom:8px;border-top:1px solid #1e1e2e;border-right:1px solid #1e1e2e;border-bottom:1px solid #1e1e2e;">' +
+            '<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">' +
+            '<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;background:rgba(255,107,157,0.13);font-size:1rem;">🧠</span>' +
+            '<span style="font-size:1.05rem;font-weight:700;color:#ff6b9d;">AI 综合总结</span>' +
+            '</div>' +
+            '<div style="color:#b8b4c4;font-size:0.9rem;line-height:1.85;">' +
+            analysis.summary
+                .replace(/\*\*(.+?)\*\*/g, '<strong style="color:#ff6b9d;background:rgba(255,107,157,0.12);padding:1px 5px;border-radius:4px;">$1</strong>')
+                .replace(/^### (.+)$/gm, '<h3 style="font-size:0.95rem;color:#4ecdc4;margin:12px 0 6px;">$1</h3>')
+                .replace(/^## (.+)$/gm, '<h2 style="font-size:1rem;color:#ff6b9d;margin:14px 0 6px;padding-bottom:4px;border-bottom:1px solid #2a2a3a;">$1</h2>')
+                .replace(/^[-*] (.+)$/gm, '<li style="margin-left:16px;margin-bottom:6px;color:#b8b4c4;">$1</li>')
+                .replace(/\n/g, '<br>') +
+            '</div></div>';
     }
-
-    const hasMore = data.has_more;
-    const totalFetched = data.total_fetched || 0;
 
     panel.innerHTML = `
         <div class="comment-panel">
-            <h4>评论分析 (${totalFetched}条)</h4>
+            <h4 style="font-size:0.95rem;color:var(--text);margin-bottom:14px;">💬 评论分析 <span style="color:var(--text-dim);font-weight:400;">(${totalFetched}条)</span></h4>
             ${sentimentHtml}
-            ${kwHtml}
+            ${cloudHtml}
             ${summaryHtml}
-            ${hasMore ? `<button class="btn btn-sm" onclick="loadMoreComments('${taskId}')" style="margin-top:12px;">加载更多</button>` : ''}
         </div>
     `;
 }
 
-async function loadMoreComments(taskId) {
-    const state = taskStates[taskId];
-    const videoId = state.videoId;
-    const cursor = state.commentCursor || 0;
-
-    try {
-        const resp = await fetch('/api/comments/load-more?video_id=' + videoId + '&cursor=' + cursor + '&count=50');
-        const data = await resp.json();
-        taskStates[taskId].commentCursor = data.cursor;
-        renderCommentResult(taskId, data);
-        showToast('已加载更多评论');
-    } catch (e) {
-        showToast('加载失败: ' + e.message);
-    }
-}
 
 // ==================== Utils ====================
 function escHTML(s) {

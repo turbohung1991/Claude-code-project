@@ -52,12 +52,12 @@ class CommentAnalyzer:
         self.client = temp.client
 
     def fetch_and_analyze(
-        self, video_id: str, max_hot: int = 200, max_latest: int = 100
+        self, video_id: str, max_comments: int = 500
     ) -> Dict:
         """一站式：抓取 + 分析"""
         from src.core import CommentFetcher
 
-        raw = CommentFetcher.fetch_comments_sync(video_id, max_hot, max_latest)
+        raw = CommentFetcher.fetch_comments_sync(video_id, max_comments)
 
         all_comments = raw['hot_comments'] + raw['latest_comments']
         if not all_comments:
@@ -92,45 +92,6 @@ class CommentAnalyzer:
             },
             'cursor': raw['cursor'],
             'has_more': raw['has_more'],
-        }
-
-    def load_more_and_analyze(
-        self, video_id: str, cursor: int, existing: Dict, count: int = 50
-    ) -> Dict:
-        """加载更多 + 合并分析（重新抓取更大批量）"""
-        from src.core import CommentFetcher
-
-        current_total = existing.get('total_fetched', 0)
-        new_max = min(current_total + count, 500)
-
-        more = CommentFetcher.fetch_comments_sync(
-            video_id, max_hot=200, max_latest=new_max
-        )
-
-        all_comments = (
-            more.get('hot_comments', []) +
-            more.get('latest_comments', [])
-        )
-
-        if len(all_comments) > 500:
-            all_comments = all_comments[:500]
-
-        sentiment = self._sentiment_analysis(all_comments)
-        keywords = self._extract_keywords(all_comments)
-        summary = self._ai_summary(all_comments, sentiment, keywords)
-
-        return {
-            'video_id': video_id,
-            'total_fetched': len(all_comments),
-            'hot_comments': more.get('hot_comments', []),
-            'latest_comments': more.get('latest_comments', []),
-            'analysis': {
-                'sentiment': sentiment,
-                'keywords': keywords,
-                'summary': summary,
-            },
-            'cursor': more['cursor'],
-            'has_more': more['has_more'],
         }
 
     def _sentiment_analysis(self, comments: List[Dict]) -> Dict:
