@@ -305,7 +305,7 @@ async function analyzeComments(taskId) {
 }
 
 async function pollCommentResult(taskId, videoId) {
-    const maxAttempts = 60;
+    const maxAttempts = 240;
     for (let i = 0; i < maxAttempts; i++) {
         try {
             const resp = await fetch('/api/comments/result/' + videoId);

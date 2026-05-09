@@ -57,7 +57,7 @@ class CommentAnalyzer:
         self.client = temp.client
 
     def fetch_and_analyze(
-        self, video_id: str, max_comments: int = 500
+        self, video_id: str, max_comments: int = 3000
     ) -> Dict:
         """一站式：抓取 + 分析"""
         from src.core import CommentFetcher

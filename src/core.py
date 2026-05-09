@@ -590,7 +590,7 @@ class CommentFetcher:
 
     @classmethod
     def fetch_comments_sync(
-        cls, video_id: str, max_comments: int = 500
+        cls, video_id: str, max_comments: int = 3000
     ) -> Dict:
         """同步抓取评论 — 在 Playwright 页面上下文中调用 fetch，自动翻页直到达到上限"""
         from playwright.sync_api import sync_playwright
