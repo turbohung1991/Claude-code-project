@@ -17,7 +17,14 @@ from queue import Queue
 from pathlib import Path
 from urllib.parse import quote
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+# PyInstaller 打包后使用 sys._MEIPASS 作为资源根目录
+if getattr(sys, 'frozen', False):
+    BASE_DIR = sys._MEIPASS
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+sys.path.insert(0, BASE_DIR)
+os.chdir(BASE_DIR)
 
 # ── Load .env ──
 try:
@@ -29,28 +36,25 @@ except ImportError:
 from flask import Flask, render_template, request, jsonify, Response, send_file
 from flask_cors import CORS
 
-# ── Douyin modules (from douyin-tool-clean) ──
-from src.core import DouyinParser
-from src.downloader import VideoDownloader
-from src.subtitle import SubtitleExtractor
-from src.strategy import StrategyAnalyzer
+# ── 所有重模块延迟导入（避免启动时加载 playwright/rembg/onnxruntime）──
+# src.core, src.downloader, src.subtitle, src.strategy → 在 /api/parse, /api/process 路由中导入
+# src.batch_manager → 在 /api/batch/* 路由中导入
+# src.comment_analyzer → 在 /api/comments/* 路由中导入
+# converters.* → 在各自转换路由中导入
 
-# ── Converter modules ──
-from converters.pdf_to_ppt import pdf_to_ppt
-from converters.ppt_to_images import ppt_to_images
-from converters.pdf_to_images import pdf_to_images
-from converters.images_to_pdf import images_to_pdf
-from converters.bg_remove import remove_background, MODELS, get_credits_info
-from src.batch_manager import batch_manager
-from src.comment_analyzer import comment_analyzer
-
-app = Flask(__name__)
+app = Flask(
+    __name__,
+    template_folder=os.path.join(BASE_DIR, 'templates'),
+    static_folder=os.path.join(BASE_DIR, 'static'),
+)
 CORS(app)
 
 # ── Config ──
 PORT = int(os.environ.get("PORT", 7860))
 DEBUG = os.environ.get("DEBUG", "0") == "1"
-DOWNLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "downloads")
+# 下载目录：优先用用户目录（打包后 app bundle 不可写）
+HOME_DIR = os.path.expanduser("~")
+DOWNLOAD_DIR = os.path.join(HOME_DIR, ".vibecoding", "downloads")
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
 tasks = {}
@@ -67,7 +71,7 @@ def _ensure_playwright():
     subprocess.run([sys.executable, "-m", "playwright", "install", "--with-deps", "chromium"],
                    check=False, timeout=300)
 
-_ensure_playwright()
+# _ensure_playwright() 在首次调用 /api/parse 时延迟执行
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -112,6 +116,8 @@ def batch_page():
 
 @app.route("/api/parse", methods=["POST"])
 def parse_url():
+    _ensure_playwright()
+    from src.core import DouyinParser
     url = request.json.get("url", "").strip()
     if not url:
         return jsonify({"success": False, "error": "请输入抖音链接"})
@@ -184,6 +190,9 @@ def process_video():
     task_id = create_task()
 
     def process():
+        from src.core import DouyinParser
+        from src.subtitle import SubtitleExtractor
+        from src.strategy import StrategyAnalyzer
         try:
             push_event(task_id, "progress", {"step": "parse", "message": "正在解析...", "percent": 5})
             link_type = DouyinParser.detect_link_type(url)
@@ -308,6 +317,7 @@ def process_video():
 
 @app.route("/api/stream/<task_id>")
 def stream(task_id):
+    from src.batch_manager import batch_manager
     queue = None
 
     # Check global tasks dict first
@@ -442,6 +452,7 @@ def _save_analysis(filename, video_data, analysis):
 
 @app.route("/api/batch/create", methods=["POST"])
 def batch_create():
+    from src.batch_manager import batch_manager
     urls = request.json.get("urls", [])
     if not urls:
         return jsonify({"success": False, "error": "请提供至少一个链接"})
@@ -461,6 +472,7 @@ def batch_create():
 
 @app.route("/api/batch/status/<batch_id>")
 def batch_status(batch_id):
+    from src.batch_manager import batch_manager
     status = batch_manager.get_status(batch_id)
     if not status:
         return jsonify({"error": "任务不存在"}), 404
@@ -469,6 +481,7 @@ def batch_status(batch_id):
 
 @app.route("/api/batch/pause", methods=["POST"])
 def batch_pause():
+    from src.batch_manager import batch_manager
     batch_id = request.json.get("batch_id", "")
     batch_manager.pause(batch_id)
     return jsonify({"success": True})
@@ -476,6 +489,7 @@ def batch_pause():
 
 @app.route("/api/batch/resume", methods=["POST"])
 def batch_resume():
+    from src.batch_manager import batch_manager
     batch_id = request.json.get("batch_id", "")
     batch_manager.resume(batch_id)
     return jsonify({"success": True})
@@ -483,6 +497,7 @@ def batch_resume():
 
 @app.route("/api/batch/retry/<task_id>", methods=["POST"])
 def batch_retry(task_id):
+    from src.batch_manager import batch_manager
     for batch_id, batch in batch_manager.batches.items():
         for task in batch['tasks']:
             if task['task_id'] == task_id:
@@ -497,6 +512,7 @@ def batch_retry(task_id):
 
 @app.route("/api/comments/fetch", methods=["POST"])
 def comments_fetch():
+    from src.comment_analyzer import comment_analyzer
     video_id = request.json.get("video_id", "")
     if not video_id:
         return jsonify({"success": False, "error": "缺少 video_id"})
@@ -734,6 +750,7 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @app.route("/api/convert/pdf-to-ppt", methods=["POST"])
 def api_pdf_to_ppt():
+    from converters.pdf_to_ppt import pdf_to_ppt
     f = request.files.get("file")
     if not f:
         return jsonify({"success": False, "error": "请上传 PDF 文件"})
@@ -748,6 +765,7 @@ def api_pdf_to_ppt():
 
 @app.route("/api/convert/ppt-to-images", methods=["POST"])
 def api_ppt_to_images():
+    from converters.ppt_to_images import ppt_to_images
     f = request.files.get("file")
     if not f:
         return jsonify({"success": False, "error": "请上传 PPTX 文件"})
@@ -762,6 +780,7 @@ def api_ppt_to_images():
 
 @app.route("/api/convert/pdf-to-images", methods=["POST"])
 def api_pdf_to_images():
+    from converters.pdf_to_images import pdf_to_images
     f = request.files.get("file")
     if not f:
         return jsonify({"success": False, "error": "请上传 PDF 文件"})
@@ -777,6 +796,7 @@ def api_pdf_to_images():
 
 @app.route("/api/convert/images-to-pdf", methods=["POST"])
 def api_images_to_pdf():
+    from converters.images_to_pdf import images_to_pdf
     files = request.files.getlist("files")
     if not files:
         return jsonify({"success": False, "error": "请上传图片"})
@@ -798,6 +818,7 @@ def api_images_to_pdf():
 
 @app.route("/api/bgremove", methods=["POST"])
 def api_bg_remove():
+    from converters.bg_remove import remove_background, MODELS, get_credits_info
     f = request.files.get("file")
     if not f:
         return jsonify({"success": False, "error": "请上传图片"})

@@ -14,3 +14,7 @@ downloads/
 .env
 .claude/
 .playwright-mcp/
+
+# 构建输出
+build/
+dist/

@@ -19,7 +19,6 @@ if (btnParse) {
 const parseError = $('#parseError');
 const videoCard = $('#videoCard');
 const videoSection = $('#videoSection');
-const subtitleSection = $('#subtitleSection');
 const historyModal = $('#historyModal');
 
 // Tab elements
@@ -118,13 +117,6 @@ async function parseUrl() {
 
         videoCard.classList.remove('hidden');
 
-        // 预显示字幕
-        if (data.subtitles_preview) {
-            subtitleSection.classList.remove('hidden');
-            $('#subtitleSource').textContent = '来源: API数据（预览）';
-            $('#subtitleContent').textContent = data.subtitles_preview;
-        }
-
         // 滚动到卡片
         videoCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
 
@@ -193,7 +185,6 @@ async function startProcess() {
     }
 
     videoSection.classList.add('hidden');
-    subtitleSection.classList.add('hidden');
 
     const downloadProgress = $('#downloadProgress');
     downloadProgress.classList.remove('hidden');
@@ -246,11 +237,6 @@ function connectSSE(taskId) {
     eventSource.addEventListener('video_ready', (e) => {
         const data = JSON.parse(e.data);
         showVideoReady(data);
-    });
-
-    eventSource.addEventListener('subtitle_ready', (e) => {
-        const data = JSON.parse(e.data);
-        showSubtitleReady(data);
     });
 
     eventSource.addEventListener('ai_ready', (e) => {
@@ -327,13 +313,6 @@ function showVideoReady(data) {
     `;
 
     videoSection.scrollIntoView({ behavior: 'smooth' });
-}
-
-function showSubtitleReady(data) {
-    subtitleSection.classList.remove('hidden');
-    const sourceLabels = { api: 'API数据', ocr: 'OCR识别', speech: '语音识别', none: '无' };
-    $('#subtitleSource').textContent = `来源: ${sourceLabels[data.source] || data.source}`;
-    $('#subtitleContent').textContent = data.text || '(无内容)';
 }
 
 function showAIReady(data) {
@@ -870,7 +849,6 @@ function resetAll() {
     hideError();
     videoCard.classList.add('hidden');
     videoSection.classList.add('hidden');
-    subtitleSection.classList.add('hidden');
     // Reset tabs
     document.querySelectorAll('.ftab-panel').forEach(p => {
         if (p.id !== 'tab-download') p.classList.add('hidden');
