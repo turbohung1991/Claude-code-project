@@ -9,3 +9,8 @@ __pycache__/
 *.zip
 /claude code project/
 downloads/
+
+# 本地配置和密钥
+.env
+.claude/
+.playwright-mcp/

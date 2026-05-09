@@ -12,6 +12,10 @@ const btnPaste = $('#btnPaste');
 const btnClear = $('#btnClear');
 const btnHistory = $('#btnHistory');
 const btnDownload = $('#btnDownload');
+
+if (btnParse) {
+    btnParse.textContent = '解析';
+}
 const parseError = $('#parseError');
 const videoCard = $('#videoCard');
 const progressSection = $('#progressSection');
@@ -106,7 +110,7 @@ async function parseUrl() {
         showError('网络错误: ' + e.message);
     } finally {
         btnParse.disabled = false;
-        btnParse.textContent = '🔍 解析';
+        btnParse.textContent = '解析';
     }
 }
 
@@ -260,7 +264,7 @@ function updateProgress(data) {
 
     // 步骤指示器
     const stepMap = {
-        'parse': { label: '🔍 解析', icon: 'parse' },
+        'parse': { label: '解析', icon: 'parse' },
         'download': { label: '📥 下载', icon: 'download' },
         'subtitle': { label: '📝 字幕', icon: 'subtitle' },
         'ai': { label: '🧠 AI分析', icon: 'ai' },

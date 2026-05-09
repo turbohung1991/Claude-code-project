@@ -1,5 +1,10 @@
 #!/bin/bash
 # 启动 Douyin API + Gradio（持久运行，不受终端退出影响）
+set -a
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+[ -f "$PROJECT_DIR/.env" ] && source "$PROJECT_DIR/.env"
+set +a
 
 echo "Starting Douyin API on port 80..."
 cd /tmp/Douyin_TikTok_Download_API
@@ -14,8 +19,8 @@ else
 fi
 
 echo "Starting Gradio on port 7860..."
-cd "/Users/admin/claude code project"
-nohup env ANTHROPIC_AUTH_TOKEN="sk-sp-b1c6575799e84277a6c557dc0d696eee" ANTHROPIC_BASE_URL="https://coding.dashscope.aliyuncs.com/apps/anthropic" ANTHROPIC_MODEL="qwen3.6-plus" REMOVE_BG_API_KEY="27zwCujUJby2n6cxAAHMVm3k" CLIPDROP_API_KEY="0f34f19fa451dee7d3a51537dd5febd7acc64b1e2fbb2bb17a93f2d1ad80fb2df7191f715eeb5e0e9ac9137ee93b7541" /usr/bin/python3 app.py > /tmp/gradio_app.log 2>&1 &
+cd "$PROJECT_DIR"
+nohup /usr/bin/python3 app.py > /tmp/gradio_app.log 2>&1 &
 disown
 
 sleep 6

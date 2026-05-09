@@ -30,10 +30,10 @@ from flask import Flask, render_template, request, jsonify, Response, send_file
 from flask_cors import CORS
 
 # ── Douyin modules (from douyin-tool-clean) ──
-from core import DouyinParser
-from downloader import VideoDownloader
-from subtitle import SubtitleExtractor
-from strategy import StrategyAnalyzer
+from src.core import DouyinParser
+from src.downloader import VideoDownloader
+from src.subtitle import SubtitleExtractor
+from src.strategy import StrategyAnalyzer
 
 # ── Converter modules ──
 from converters.pdf_to_ppt import pdf_to_ppt
