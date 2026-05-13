@@ -18,8 +18,13 @@ if (btnParse) {
 }
 const parseError = $('#parseError');
 const videoCard = $('#videoCard');
-const videoSection = $('#videoSection');
+const videoSection = $('#videoSection') || videoCard; // fallback
 const historyModal = $('#historyModal');
+const coverPlayer = $('#coverPlayer');
+const coverPoster = $('#coverPoster');
+const playOverlay = $('#playOverlay');
+
+let isCoverPlaying = false;
 
 // Tab elements
 const tabBtns = document.querySelectorAll('.ftab-btn');
@@ -29,6 +34,7 @@ let selectedQuality = 0;
 let videoData = null;
 let eventSource = null;
 let currentTab = 'tab-download';
+let steps = new Set(); // Track SSE progress steps at module level
 
 // ==================== Tab 切换 ====================
 tabBtns.forEach(btn => {
@@ -73,6 +79,30 @@ btnClear.addEventListener('click', () => {
 btnHistory.addEventListener('click', openHistory);
 
 btnDownload.addEventListener('click', startProcess);
+
+// 点击封面预览视频
+document.addEventListener('click', (e) => {
+    const cover = document.getElementById('videoCover');
+    if (!cover || !cover.contains(e.target)) return;
+    // 排除非封面区域的子元素（如 meta info）
+    if (!e.target.closest('.video-cover')) return;
+    if (!coverPlayer || coverPlayer.style.display === 'none' || !coverPlayer.src) {
+        showToast('请先下载视频');
+        return;
+    }
+    if (isCoverPlaying) {
+        coverPlayer.pause();
+        isCoverPlaying = false;
+    } else {
+        coverPlayer.play();
+        coverPoster.classList.add('playing');
+        isCoverPlaying = true;
+    }
+});
+
+coverPlayer.addEventListener('ended', () => {
+    isCoverPlaying = false;
+});
 
 // Strategy & comment button listeners (dynamic, attach when video card shows)
 document.addEventListener('click', (e) => {
@@ -139,10 +169,12 @@ function renderVideoCard(data) {
 
     // 封面
     if (info.cover) {
-        $('#videoCover').style.backgroundImage = `url(${info.cover})`;
+        coverPoster.style.backgroundImage = `url(${info.cover})`;
     } else {
-        $('#videoCover').style.background = 'linear-gradient(135deg, #6c5ce7, #ff6b9d)';
+        coverPoster.style.background = 'linear-gradient(135deg, #6c5ce7, #ff6b9d)';
     }
+    coverPoster.classList.remove('playing');
+    isCoverPlaying = false;
 
     // 话题标签
     const hashtags = info.hashtags.filter(Boolean);
@@ -184,7 +216,7 @@ async function startProcess() {
         return;
     }
 
-    videoSection.classList.add('hidden');
+    $('#downloadInfo').classList.add('hidden');
 
     const downloadProgress = $('#downloadProgress');
     downloadProgress.classList.remove('hidden');
@@ -226,7 +258,7 @@ async function startProcess() {
 function connectSSE(taskId) {
     if (eventSource) eventSource.close();
 
-    const steps = new Set();
+    steps = new Set();
     eventSource = new EventSource(`/api/stream/${taskId}`);
 
     eventSource.addEventListener('progress', (e) => {
@@ -254,9 +286,9 @@ function connectSSE(taskId) {
         finishProcess();
     });
 
-    eventSource.onerror = () => {
-        // SSE连接中断，可能任务已完成
-        if (eventSource.readyState === EventSource.CLOSED) {
+    const es = eventSource;
+    es.onerror = () => {
+        if (es.readyState === EventSource.CLOSED) {
             finishProcess();
         }
     };
@@ -302,17 +334,30 @@ function updateProgress(data) {
 }
 
 function showVideoReady(data) {
-    videoSection.classList.remove('hidden');
-    const player = $('#videoPlayer');
-    player.src = data.url;
-    player.load();
+    // 将视频加载到封面播放器
+    coverPlayer.src = data.url;
+    coverPlayer.load();
+    coverPlayer.style.display = 'block';
+    coverPoster.classList.add('playing');
+    playOverlay.style.display = 'flex';
+    isCoverPlaying = false;
 
-    $('#videoInfo').innerHTML = `
-        <strong>${data.filename}</strong> · ${data.size_display} · ${data.quality}
-        <br><a href="${data.url}" download style="color:var(--primary);font-size:0.85rem;">💾 点击下载到本地</a>
-    `;
+    // 显示下载信息卡片
+    const infoCard = $('#downloadInfo');
+    infoCard.classList.remove('hidden');
+    $('#downloadInfoText').textContent = `${data.filename} · ${data.size_display} · ${data.quality}`;
+    const link = $('#downloadLink');
+    link.href = data.url;
+    link.download = data.filename;
+    link.style.display = 'inline-block';
 
-    videoSection.scrollIntoView({ behavior: 'smooth' });
+    // 自动触发浏览器下载
+    const a = document.createElement('a');
+    a.href = data.url;
+    a.download = data.filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
 }
 
 function showAIReady(data) {
@@ -829,10 +874,12 @@ async function deleteVideo(filename, btn) {
 
 function playVideo(url) {
     closeHistory();
-    videoSection.classList.remove('hidden');
-    $('#videoPlayer').src = url;
-    $('#videoInfo').textContent = '';
-    videoSection.scrollIntoView({ behavior: 'smooth' });
+    coverPlayer.src = url;
+    coverPlayer.style.display = 'block';
+    if (coverPoster) coverPoster.classList.add('playing');
+    if (playOverlay) playOverlay.style.display = 'none';
+    coverPlayer.play();
+    isCoverPlaying = true;
 }
 
 // ==================== 工具函数 ====================
@@ -848,7 +895,13 @@ function hideError() {
 function resetAll() {
     hideError();
     videoCard.classList.add('hidden');
-    videoSection.classList.add('hidden');
+    if (videoSection) videoSection.classList.add('hidden');
+    $('#downloadInfo').classList.add('hidden');
+    // Reset cover player
+    if (coverPlayer) { coverPlayer.pause(); coverPlayer.src = ''; coverPlayer.style.display = 'none'; }
+    if (coverPoster) coverPoster.classList.remove('playing');
+    if (playOverlay) playOverlay.style.display = 'none';
+    isCoverPlaying = false;
     // Reset tabs
     document.querySelectorAll('.ftab-panel').forEach(p => {
         if (p.id !== 'tab-download') p.classList.add('hidden');
@@ -867,6 +920,7 @@ function resetAll() {
     $('#strategyContent').innerHTML = '';
     $('#strategyLoading').classList.add('hidden');
     if ($('#btnRunStrategy')) { $('#btnRunStrategy').disabled = false; $('#btnRunStrategy').textContent = '🧠 开始 AI 策略分析'; }
+    steps = new Set();
     videoData = null;
     selectedQuality = 0;
     if (eventSource) {

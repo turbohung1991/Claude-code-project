@@ -39,7 +39,13 @@
         <!-- 视频信息卡片（解析后显示） -->
         <section id="videoCard" class="card hidden">
             <div class="card-header">
-                <div class="video-cover" id="videoCover"></div>
+                <div class="video-cover" id="videoCover">
+                    <video id="coverPlayer" class="cover-player" controls style="display:none;"></video>
+                    <div class="cover-poster" id="coverPoster"></div>
+                    <div class="play-overlay" id="playOverlay" style="display:none;">
+                        <svg class="play-icon" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg>
+                    </div>
+                </div>
                 <div class="video-meta">
                     <h3 id="videoDesc">-</h3>
                     <div class="meta-row">
@@ -102,12 +108,11 @@
 
         </section>
 
-        <!-- 视频播放区 -->
-        <section id="videoSection" class="card hidden">
-            <h3>📺 视频预览</h3>
-            <video id="videoPlayer" controls style="width:100%; max-height:500px; border-radius:12px; background:#000;"></video>
-            <div id="videoInfo" class="video-download-info"></div>
-        </section>
+        <!-- 下载状态信息 -->
+        <div id="downloadInfo" class="card hidden" style="text-align:center;">
+            <p id="downloadInfoText"></p>
+            <a id="downloadLink" class="btn btn-success" download style="margin-top:10px;display:inline-block;">📥 保存到本地</a>
+        </div>
 
         <!-- 历史记录弹窗 -->
         <div id="historyModal" class="modal hidden">
