@@ -582,6 +582,60 @@ body {
     to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
+/* ==================== AI Section (download tab) ==================== */
+.ai-section {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--card-border);
+}
+
+/* ==================== Video Preview Modal ==================== */
+.video-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 3000;
+}
+
+.video-modal-overlay {
+    position: relative;
+    width: 90vw;
+    max-width: 1100px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.video-modal-player {
+    width: 100%;
+    max-height: 85vh;
+    border-radius: var(--radius);
+    background: #000;
+    box-shadow: 0 8px 48px rgba(0, 0, 0, 0.6);
+}
+
+.video-modal-close {
+    position: absolute;
+    top: -44px;
+    right: 0;
+    background: none;
+    border: none;
+    color: #fff;
+    font-size: 1.6rem;
+    cursor: pointer;
+    padding: 4px 10px;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+    z-index: 3001;
+}
+
+.video-modal-close:hover {
+    opacity: 1;
+}
+
 /* ==================== 响应式 ==================== */
 /* ==================== 大号上传区 ==================== */
 .drop-zone {

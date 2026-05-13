@@ -24,6 +24,7 @@ const coverPlayer = $('#coverPlayer');
 const coverPoster = $('#coverPoster');
 const playOverlay = $('#playOverlay');
 
+const aiSection = $('#aiSection');
 let isCoverPlaying = false;
 
 // Tab elements
@@ -35,6 +36,8 @@ let videoData = null;
 let eventSource = null;
 let currentTab = 'tab-download';
 let steps = new Set(); // Track SSE progress steps at module level
+let downloadAbortController = null; // for cancelling blob fetch
+let isDownloadPaused = false;
 
 // ==================== Tab 切换 ====================
 tabBtns.forEach(btn => {
@@ -80,24 +83,16 @@ btnHistory.addEventListener('click', openHistory);
 
 btnDownload.addEventListener('click', startProcess);
 
-// 点击封面预览视频
+// 点击封面预览视频（弹窗放大播放）
 document.addEventListener('click', (e) => {
     const cover = document.getElementById('videoCover');
     if (!cover || !cover.contains(e.target)) return;
-    // 排除非封面区域的子元素（如 meta info）
     if (!e.target.closest('.video-cover')) return;
     if (!coverPlayer || coverPlayer.style.display === 'none' || !coverPlayer.src) {
         showToast('请先下载视频');
         return;
     }
-    if (isCoverPlaying) {
-        coverPlayer.pause();
-        isCoverPlaying = false;
-    } else {
-        coverPlayer.play();
-        coverPoster.classList.add('playing');
-        isCoverPlaying = true;
-    }
+    openVideoModal(coverPlayer.src);
 });
 
 coverPlayer.addEventListener('ended', () => {
@@ -216,17 +211,16 @@ async function startProcess() {
         return;
     }
 
-    $('#downloadInfo').classList.add('hidden');
-
     const downloadProgress = $('#downloadProgress');
     downloadProgress.classList.remove('hidden');
     $('#progressFill').style.width = '0%';
     $('#progressPercent').textContent = '0%';
     $('#progressMsg').textContent = '准备中...';
     $('#progressSteps').innerHTML = '';
+    addPauseCancelButtons();
 
     btnDownload.disabled = true;
-    btnDownload.textContent = '...';
+    btnDownload.textContent = '⏳ 处理中...';
 
     try {
         const resp = await fetch('/api/process', {
@@ -333,7 +327,7 @@ function updateProgress(data) {
     }
 }
 
-function showVideoReady(data) {
+async function showVideoReady(data) {
     // 将视频加载到封面播放器
     coverPlayer.src = data.url;
     coverPlayer.load();
@@ -342,22 +336,32 @@ function showVideoReady(data) {
     playOverlay.style.display = 'flex';
     isCoverPlaying = false;
 
-    // 显示下载信息卡片
-    const infoCard = $('#downloadInfo');
-    infoCard.classList.remove('hidden');
-    $('#downloadInfoText').textContent = `${data.filename} · ${data.size_display} · ${data.quality}`;
-    const link = $('#downloadLink');
-    link.href = data.url;
-    link.download = data.filename;
-    link.style.display = 'inline-block';
-
-    // 自动触发浏览器下载
-    const a = document.createElement('a');
-    a.href = data.url;
-    a.download = data.filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    // 真正下载视频：fetch 为 blob 后触发下载
+    $('#progressMsg').textContent = '正在下载文件到本地...';
+    downloadAbortController = new AbortController();
+    try {
+        const resp = await fetch(data.url, { signal: downloadAbortController.signal });
+        if (!resp.ok) throw new Error('下载失败');
+        const blob = await resp.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = data.filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(blobUrl);
+        $('#progressMsg').textContent = '文件已下载到本地！';
+    } catch (e) {
+        if (e.name === 'AbortError') {
+            $('#progressMsg').textContent = '下载已取消';
+        } else {
+            $('#progressMsg').textContent = '下载失败，尝试直接打开链接...';
+            window.open(data.url, '_blank');
+        }
+    } finally {
+        downloadAbortController = null;
+    }
 }
 
 function showAIReady(data) {
@@ -394,7 +398,8 @@ async function doExport(format) {
     }
     if (!html || html.length < 50) { showToast('没有可导出的分析内容'); return; }
     html = stripScrollStyles(html);
-    const title = (videoData?.info?.desc || '分析报告').substring(0, 30);
+    const base = (videoData?.info?.desc || '分析报告').substring(0, 25);
+    const title = 'AI分析_' + base;
     const endpoint = format === 'pdf' ? '/api/export/pdf' : '/api/export/image';
     const ext = format === 'pdf' ? '.pdf' : '.png';
     try {
@@ -428,7 +433,7 @@ async function exportHistoryRaw(format) {
     }
     if (!html || html.length < 50) { showToast('没有可导出的分析内容'); return; }
     html = stripScrollStyles(html);
-    const title = el.dataset.title || '分析报告';
+    const title = '历史分析_' + (el.dataset.title || '分析报告');
     const endpoint = format === 'pdf' ? '/api/export/pdf' : '/api/export/image';
     const ext = format === 'pdf' ? '.pdf' : '.png';
     try {
@@ -455,6 +460,7 @@ function finishProcess() {
     btnDownload.disabled = false;
     btnDownload.textContent = '📥 下载视频';
     $('#downloadProgress').classList.add('hidden');
+    removePauseCancelButtons();
     currentTaskId = null;
 }
 
@@ -506,6 +512,7 @@ async function runStrategyAnalysis() {
             loading.classList.add('hidden');
             if (d.error) {
                 content.innerHTML = '<p style="color:var(--danger);">' + (d.analysis || '分析失败') + '</p>';
+                showAIReady(d);
             } else {
                 const html = renderAIReport(d.analysis);
                 const rawText = d.analysis || '';
@@ -515,6 +522,7 @@ async function runStrategyAnalysis() {
                     <button class="btn btn-sm" onclick="exportStrategyReport('img')">🖼️ 导出图片</button>
                 </div>`;
                 content.querySelector('.markdown-body')?.style?.setProperty('max-height','none');
+                showAIReady(d);
             }
             es.close();
             finishStrategy();
@@ -548,7 +556,8 @@ function exportStrategyReport(format) {
     const el = $('#strategyContent');
     let html = el?.innerHTML || '';
     if (!html || html.length < 50) { showToast('没有可导出内容'); return; }
-    const title = (videoData?.info?.desc || '分析报告').substring(0, 30);
+    const base = (videoData?.info?.desc || '分析报告').substring(0, 25);
+    const title = '策略分析_' + base;
     doExportRaw(format, html, title);
 }
 
@@ -714,16 +723,30 @@ function renderCommentOnMain(data) {
 
 function exportMainComment(format) {
     const content = $('#commentResult').innerHTML;
-    const title = (videoData?.info?.desc || '评论分析').substring(0,30);
+    const base = (videoData?.info?.desc || '评论分析').substring(0, 25);
+    const title = '评论分析_' + base;
     doExportRaw(format, content, title);
 }
 
-function downloadMainCommentCSV() {
+async function downloadMainCommentCSV() {
     if (!videoData || !videoData.video_id) { showToast('未找到视频ID'); return; }
-    const a = document.createElement('a');
-    a.href = '/api/comments/export-data/' + videoData.video_id;
-    a.download = 'comments_' + videoData.video_id + '.csv';
-    a.click();
+    try {
+        showToast('正在导出评论数据...');
+        const resp = await fetch('/api/comments/export-data/' + videoData.video_id);
+        if (!resp.ok) throw new Error('导出失败');
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'comments_' + videoData.video_id + '.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        showToast('评论数据已导出');
+    } catch (e) {
+        showToast('导出评论数据失败: ' + e.message);
+    }
 }
 
 // ==================== 历史记录弹窗 ====================
@@ -872,16 +895,6 @@ async function deleteVideo(filename, btn) {
     }
 }
 
-function playVideo(url) {
-    closeHistory();
-    coverPlayer.src = url;
-    coverPlayer.style.display = 'block';
-    if (coverPoster) coverPoster.classList.add('playing');
-    if (playOverlay) playOverlay.style.display = 'none';
-    coverPlayer.play();
-    isCoverPlaying = true;
-}
-
 // ==================== 工具函数 ====================
 function showError(msg) {
     parseError.textContent = msg;
@@ -896,7 +909,6 @@ function resetAll() {
     hideError();
     videoCard.classList.add('hidden');
     if (videoSection) videoSection.classList.add('hidden');
-    $('#downloadInfo').classList.add('hidden');
     // Reset cover player
     if (coverPlayer) { coverPlayer.pause(); coverPlayer.src = ''; coverPlayer.style.display = 'none'; }
     if (coverPoster) coverPoster.classList.remove('playing');
@@ -920,6 +932,9 @@ function resetAll() {
     $('#strategyContent').innerHTML = '';
     $('#strategyLoading').classList.add('hidden');
     if ($('#btnRunStrategy')) { $('#btnRunStrategy').disabled = false; $('#btnRunStrategy').textContent = '🧠 开始 AI 策略分析'; }
+    if (aiSection) aiSection.classList.add('hidden');
+    if ($('#aiContent')) $('#aiContent').innerHTML = '';
+    if ($('#aiExportBtns')) $('#aiExportBtns').classList.add('hidden');
     steps = new Set();
     videoData = null;
     selectedQuality = 0;
@@ -927,6 +942,9 @@ function resetAll() {
         eventSource.close();
         eventSource = null;
     }
+    if (downloadAbortController) { downloadAbortController.abort(); downloadAbortController = null; }
+    isDownloadPaused = false;
+    removePauseCancelButtons();
     btnDownload.disabled = false;
     btnDownload.textContent = '📥 下载视频';
 }
@@ -1099,6 +1117,96 @@ historyModal.addEventListener('click', (e) => {
     if (e.target === historyModal) closeHistory();
     if (e.target.classList.contains('btn-export-pdf')) exportHistoryRaw('pdf');
     if (e.target.classList.contains('btn-export-img')) exportHistoryRaw('img');
+});
+
+// ==================== 下载暂停/取消 ====================
+function addPauseCancelButtons() {
+    removePauseCancelButtons();
+    const container = document.createElement('div');
+    container.id = 'pauseCancelBtns';
+    container.style.cssText = 'display:flex;gap:8px;margin-top:8px;justify-content:center;';
+    container.innerHTML = `
+        <button id="btnPause" class="btn btn-sm" onclick="pauseDownload()" style="background:#ffa502;color:#fff;border:none;">⏸ 暂停</button>
+        <button id="btnCancel" class="btn btn-sm" onclick="cancelDownload()" style="background:#ff6b6b;color:#fff;border:none;">✕ 取消</button>
+    `;
+    $('#downloadProgress').appendChild(container);
+}
+
+function removePauseCancelButtons() {
+    const existing = $('#pauseCancelBtns');
+    if (existing) existing.remove();
+}
+
+function pauseDownload() {
+    isDownloadPaused = true;
+    if (eventSource) { eventSource.close(); eventSource = null; }
+    if (downloadAbortController) { downloadAbortController.abort(); downloadAbortController = null; }
+    $('#progressMsg').textContent = '已暂停';
+    btnDownload.disabled = false;
+    btnDownload.textContent = '▶ 继续下载';
+    const pauseBtn = $('#btnPause');
+    if (pauseBtn) {
+        pauseBtn.textContent = '▶ 继续';
+        pauseBtn.onclick = resumeDownload;
+    }
+}
+
+function resumeDownload() {
+    isDownloadPaused = false;
+    btnDownload.disabled = true;
+    btnDownload.textContent = '⏳ 处理中...';
+    const pauseBtn = $('#btnPause');
+    if (pauseBtn) {
+        pauseBtn.textContent = '⏸ 暂停';
+        pauseBtn.onclick = pauseDownload;
+    }
+    if (currentTaskId) {
+        $('#progressMsg').textContent = '正在连接...';
+        connectSSE(currentTaskId);
+    }
+}
+
+function cancelDownload() {
+    if (eventSource) { eventSource.close(); eventSource = null; }
+    if (downloadAbortController) { downloadAbortController.abort(); downloadAbortController = null; }
+    isDownloadPaused = false;
+    currentTaskId = null;
+    btnDownload.disabled = false;
+    btnDownload.textContent = '📥 下载视频';
+    $('#downloadProgress').classList.add('hidden');
+    $('#progressMsg').textContent = '下载已取消';
+    setTimeout(() => { if ($('#progressMsg').textContent === '下载已取消') $('#progressMsg').textContent = '准备中...'; }, 2000);
+    removePauseCancelButtons();
+}
+
+// ==================== 视频预览弹窗 ====================
+function playVideo(url) {
+    closeHistory();
+    openVideoModal(url);
+}
+
+function openVideoModal(url) {
+    const videoModal = $('#videoModal');
+    const modalPlayer = $('#videoModalPlayer');
+    modalPlayer.src = url;
+    modalPlayer.load();
+    videoModal.classList.remove('hidden');
+    setTimeout(() => modalPlayer.play(), 100);
+}
+
+function closeVideoModal() {
+    const videoModal = $('#videoModal');
+    const modalPlayer = $('#videoModalPlayer');
+    modalPlayer.pause();
+    modalPlayer.src = '';
+    videoModal.classList.add('hidden');
+}
+
+// ESC 关闭视频弹窗
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !$('#videoModal').classList.contains('hidden')) {
+        closeVideoModal();
+    }
 });
 
 // ==================== 初始化 ====================
