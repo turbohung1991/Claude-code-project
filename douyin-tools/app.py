@@ -748,6 +748,35 @@ def _simple_md_to_html(text):
 UPLOAD_DIR = os.path.join(tempfile.gettempdir(), "vibecoding_uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+@app.route("/api/thumbnail/pdf", methods=["POST"])
+def api_pdf_thumbnail():
+    """Generate a small thumbnail PNG of the first page of an uploaded PDF."""
+    import io
+    from pdf2image import convert_from_path
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"error": "请上传PDF"}), 400
+    path = os.path.join(UPLOAD_DIR, f"thumb_{f.filename}")
+    f.save(path)
+    try:
+        images = convert_from_path(path, dpi=72, first_page=1, last_page=1)
+        if not images:
+            return jsonify({"error": "无法读取PDF"}), 500
+        buf = io.BytesIO()
+        img = images[0]
+        img.thumbnail((300, 240))
+        img.save(buf, format="PNG")
+        buf.seek(0)
+        return send_file(buf, mimetype="image/png")
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
 @app.route("/api/convert/pdf-to-ppt", methods=["POST"])
 def api_pdf_to_ppt():
     from converters.pdf_to_ppt import pdf_to_ppt
@@ -815,6 +844,34 @@ def api_images_to_pdf():
 # ═══════════════════════════════════════════════════════════════
 # Background Removal API
 # ═══════════════════════════════════════════════════════════════
+
+@app.route("/api/bgremove/config", methods=["GET"])
+def api_bgremove_get_config():
+    """Get current API key config (masked for security)."""
+    from converters.bg_remove import get_api_keys
+    keys = get_api_keys()
+    masked = {}
+    for k, v in keys.items():
+        if v and len(v) > 8:
+            masked[k] = v[:4] + "****" + v[-4:]
+        else:
+            masked[k] = v
+    return jsonify({"keys": masked})
+
+
+@app.route("/api/bgremove/config", methods=["POST"])
+def api_bgremove_set_config():
+    """Save API keys to config file."""
+    from converters.bg_remove import _save_config, _load_config
+    data = request.json or {}
+    config = _load_config()
+    if "clipdrop" in data:
+        config["clipdrop"] = data["clipdrop"].strip()
+    if "remove_bg" in data:
+        config["remove_bg"] = data["remove_bg"].strip()
+    _save_config(config)
+    return jsonify({"success": True})
+
 
 @app.route("/api/bgremove", methods=["POST"])
 def api_bg_remove():

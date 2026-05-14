@@ -18,6 +18,12 @@
         .preview-box { margin-top:16px; text-align:center; }
         .preview-box img { max-width:100%; max-height:400px; border-radius:12px; }
         .credits { font-size:0.82rem; color:#888; margin-top:8px; padding:6px 12px; background:#111119; border-radius:6px; border:1px solid #2a2a3a; display:inline-block; }
+        .btn-preview { background: var(--primary); color: #fff !important; }
+        .btn-download-png { background: var(--success); color: #fff !important; }
+        .img-modal { position:fixed; inset:0; background:rgba(0,0,0,0.92); display:flex; align-items:center; justify-content:center; z-index:3000; cursor:pointer; }
+        .img-modal img { max-width:92vw; max-height:92vh; border-radius:12px; box-shadow:0 8px 48px rgba(0,0,0,0.6); }
+        .img-modal-close { position:absolute; top:16px; right:24px; color:#fff; font-size:2rem; cursor:pointer; opacity:0.8; z-index:3001; }
+        .img-modal-close:hover { opacity:1; }
     </style>
 </head>
 <body>
@@ -34,6 +40,30 @@
     <a href="/bgremove" class="bg-link" style="border-color:rgba(255,255,255,0.5); box-shadow:0 0 18px rgba(255,165,2,0.25);">一键抠图</a>
 </div>
         </header>
+
+        <!-- API Key 配置 -->
+        <div class="card" style="margin-bottom:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;cursor:pointer;" onclick="document.getElementById('apiConfig').classList.toggle('hidden');this.querySelector('.cfg-arrow').classList.toggle('open')">
+                <h3 style="margin:0;">🔑 API Key 配置</h3>
+                <span class="cfg-arrow" style="font-size:1.2rem;transition:transform 0.2s;">▶</span>
+            </div>
+            <div id="apiConfig" class="hidden" style="margin-top:14px;">
+                <div class="form-group">
+                    <label>Clipdrop API Key <a href="https://clipdrop.co/apis" target="_blank" style="color:#6c5ce7;font-size:0.8rem;">获取 →</a></label>
+                    <input type="password" id="cfgClipdrop" placeholder="粘贴 Clipdrop API Key" style="width:100%;padding:10px;background:#111119;border:1px solid #2a2a3a;border-radius:10px;color:#e0e0e0;">
+                </div>
+                <div class="form-group">
+                    <label>remove.bg API Key <a href="https://www.remove.bg/api" target="_blank" style="color:#6c5ce7;font-size:0.8rem;">获取 →</a></label>
+                    <input type="password" id="cfgRemoveBg" placeholder="粘贴 remove.bg API Key" style="width:100%;padding:10px;background:#111119;border:1px solid #2a2a3a;border-radius:10px;color:#e0e0e0;">
+                </div>
+                <div style="display:flex;gap:8px;">
+                    <button type="button" class="btn btn-sm" id="btnSaveKeys" style="background:#6c5ce7;color:#fff;">💾 保存</button>
+                    <button type="button" class="btn btn-sm" id="btnToggleKeys">👁 显示</button>
+                    <span id="cfgStatus" style="font-size:0.82rem;color:#00d68f;align-self:center;"></span>
+                </div>
+                <p style="font-size:0.78rem;color:#555;margin-top:8px;">密钥保存在本地 ~/.vibecoding/bgremove_keys.json，仅用于云端API调用。本地模型无需密钥。</p>
+            </div>
+        </div>
 
         <div class="card">
             <form id="bg-form" enctype="multipart/form-data">
@@ -71,9 +101,86 @@
             <div id="preview" class="preview-box hidden"></div>
             <div id="error" class="error-msg hidden"></div>
         </div>
+
+        <!-- 图片预览弹窗 -->
+        <div id="imgModal" class="img-modal hidden" onclick="closeImgModal()">
+            <span class="img-modal-close">✕</span>
+            <img id="imgModalImg" src="" alt="Preview" onclick="event.stopPropagation()">
+        </div>
     </div>
 
+    <style>
+        .cfg-arrow.open { transform: rotate(90deg); }
+        #apiConfig.hidden { display: none; }
+    </style>
     <script>
+    // ── API Key 配置 ──
+    const cfgClipdrop = document.getElementById('cfgClipdrop');
+    const cfgRemoveBg = document.getElementById('cfgRemoveBg');
+    const cfgStatus = document.getElementById('cfgStatus');
+    const btnSave = document.getElementById('btnSaveKeys');
+    const btnToggle = document.getElementById('btnToggleKeys');
+
+    // Load existing keys
+    fetch('/api/bgremove/config')
+        .then(r => r.json())
+        .then(data => {
+            if (data.keys.clipdrop) cfgClipdrop.value = data.keys.clipdrop;
+            if (data.keys.remove_bg) cfgRemoveBg.value = data.keys.remove_bg;
+        })
+        .catch(() => {});
+
+    // Save keys
+    btnSave.addEventListener('click', async () => {
+        cfgStatus.textContent = '';
+        cfgStatus.style.color = '#888';
+        const body = {};
+        if (cfgClipdrop.value.trim()) body.clipdrop = cfgClipdrop.value.trim();
+        if (cfgRemoveBg.value.trim()) body.remove_bg = cfgRemoveBg.value.trim();
+        if (!Object.keys(body).length) { cfgStatus.textContent = '请至少填入一个 Key'; cfgStatus.style.color = '#ff6b6b'; return; }
+        try {
+            const resp = await fetch('/api/bgremove/config', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(body)
+            });
+            const data = await resp.json();
+            if (data.success) {
+                cfgStatus.textContent = '已保存 ✓';
+                cfgStatus.style.color = '#00d68f';
+                setTimeout(() => { cfgStatus.textContent = ''; }, 2000);
+            }
+        } catch (e) {
+            cfgStatus.textContent = '保存失败';
+            cfgStatus.style.color = '#ff6b6b';
+        }
+    });
+
+    // Toggle visibility
+    let keysVisible = false;
+    btnToggle.addEventListener('click', () => {
+        keysVisible = !keysVisible;
+        cfgClipdrop.type = keysVisible ? 'text' : 'password';
+        cfgRemoveBg.type = keysVisible ? 'text' : 'password';
+        btnToggle.textContent = keysVisible ? '🙈 隐藏' : '👁 显示';
+    });
+
+    // ── 图片预览弹窗 ──
+    function openImgModal(url) {
+        const modal = document.getElementById('imgModal');
+        const img = document.getElementById('imgModalImg');
+        img.src = url;
+        modal.classList.remove('hidden');
+    }
+    function closeImgModal() {
+        const modal = document.getElementById('imgModal');
+        modal.classList.add('hidden');
+        document.getElementById('imgModalImg').src = '';
+    }
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeImgModal();
+    });
+
+    // ── 抠图表单 ──
     document.getElementById('bg-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const preview = document.getElementById('preview');
@@ -89,7 +196,11 @@
             const resp = await fetch('/api/bgremove', { method: 'POST', body: fd });
             const data = await resp.json();
             if (!data.success) throw new Error(data.error);
-            preview.innerHTML = `<img src="${data.result_url}" alt="Result"><br><a href="${data.result_url}" download class="btn btn-success" style="margin-top:12px;">下载 PNG</a>`;
+            preview.innerHTML = `<img src="${data.result_url}" alt="Result" style="cursor:pointer;" onclick="openImgModal('${data.result_url}')"><br>
+                <div style="display:flex;gap:10px;justify-content:center;margin-top:12px;">
+                    <button class="btn btn-preview" onclick="openImgModal('${data.result_url}')">🔍 预览PNG</button>
+                    <a href="${data.result_url}" download class="btn btn-download-png">📥 下载PNG</a>
+                </div>`;
             if (data.credits) credits.textContent = data.credits;
         } catch (err) {
             error.textContent = err.message;
@@ -98,9 +209,53 @@
         }
     });
     
-// Drop zone drag-and-drop
+// Drop zone drag-and-drop with thumbnail preview
+function ensurePreview(zone) {
+    let pv = zone.querySelector('.drop-preview');
+    if (!pv) {
+        pv = document.createElement('div');
+        pv.className = 'drop-preview hidden';
+        zone.insertBefore(pv, zone.querySelector('input'));
+    }
+    return pv;
+}
+function showDefault(zone, dropText, dropHint, defaultText) {
+    zone.classList.remove('has-file');
+    if (dropText) { dropText.style.display = ''; dropText.textContent = defaultText; }
+    if (dropHint) dropHint.style.display = '';
+    const pv = zone.querySelector('.drop-preview');
+    if (pv) { pv.classList.add('hidden'); pv.innerHTML = ''; }
+}
+function showPreview(zone, dropText, dropHint, files) {
+    zone.classList.add('has-file');
+    if (dropText) dropText.style.display = 'none';
+    if (dropHint) dropHint.style.display = 'none';
+    const pv = ensurePreview(zone);
+    pv.classList.remove('hidden');
+    pv.innerHTML = '';
+    const names = Array.from(files).map(f => f.name);
+    const first = files[0];
+    const isImage = first.type.startsWith('image/');
+    if (isImage) {
+        const reader = new FileReader();
+        reader.onload = () => {
+            pv.innerHTML = `<img src="${reader.result}" alt="preview">`;
+            pv.innerHTML += `<span class="file-name">${names.join(', ')}</span>`;
+        };
+        reader.readAsDataURL(first);
+    } else {
+        const ext = (first.name.split('.').pop() || '').toLowerCase();
+        const icons = { pdf: '📄', pptx: '📊', ppt: '📊', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊' };
+        const icon = icons[ext] || '📁';
+        pv.innerHTML = `<span class="file-icon">${icon}</span>`;
+        pv.innerHTML += `<span class="file-name">${names.join(', ')}</span>`;
+    }
+}
 document.querySelectorAll(".drop-zone").forEach(zone => {
     const input = zone.querySelector("input[type=file]");
+    const dropText = zone.querySelector(".drop-text");
+    const dropHint = zone.querySelector(".drop-hint");
+    const defaultText = dropText ? dropText.textContent : '';
     ["dragenter","dragover","dragleave","drop"].forEach(evt => {
         zone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); });
     });
@@ -115,8 +270,11 @@ document.querySelectorAll(".drop-zone").forEach(zone => {
         input.dispatchEvent(new Event("change"));
     });
     input.addEventListener("change", () => {
-        if (input.files.length > 0) zone.classList.add("has-file");
-        else zone.classList.remove("has-file");
+        if (input.files.length > 0) {
+            showPreview(zone, dropText, dropHint, input.files);
+        } else {
+            showDefault(zone, dropText, dropHint, defaultText);
+        }
     });
 });
 

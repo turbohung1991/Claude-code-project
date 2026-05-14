@@ -116,9 +116,68 @@
         });
     });
 
-    // Drop zone drag-and-drop
+    // Drop zone drag-and-drop with thumbnail preview
+    function ensurePreview(zone) {
+        let pv = zone.querySelector('.drop-preview');
+        if (!pv) {
+            pv = document.createElement('div');
+            pv.className = 'drop-preview hidden';
+            zone.insertBefore(pv, zone.querySelector('input'));
+        }
+        return pv;
+    }
+    function showDefault(zone, dropText, dropHint, defaultText) {
+        zone.classList.remove('has-file');
+        if (dropText) { dropText.style.display = ''; dropText.textContent = defaultText; }
+        if (dropHint) dropHint.style.display = '';
+        const pv = zone.querySelector('.drop-preview');
+        if (pv) { pv.classList.add('hidden'); pv.innerHTML = ''; }
+    }
+    function showPreview(zone, dropText, dropHint, files) {
+        zone.classList.add('has-file');
+        if (dropText) dropText.style.display = 'none';
+        if (dropHint) dropHint.style.display = 'none';
+        const pv = ensurePreview(zone);
+        pv.classList.remove('hidden');
+        pv.innerHTML = '';
+        const names = Array.from(files).map(f => f.name);
+        const first = files[0];
+        const isImage = first.type.startsWith('image/');
+        const ext = (first.name.split('.').pop() || '').toLowerCase();
+        if (isImage) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                pv.innerHTML = `<img src="${reader.result}" alt="preview">`;
+                pv.innerHTML += `<span class="file-name">${names.join(', ')}</span>`;
+            };
+            reader.readAsDataURL(first);
+        } else if (ext === 'pdf') {
+            pv.innerHTML = '<span style="color:#888;font-size:0.85rem;">生成预览中...</span>';
+            const fd = new FormData();
+            fd.append('file', first);
+            fetch('/api/thumbnail/pdf', { method: 'POST', body: fd })
+                .then(r => r.ok ? r.blob() : Promise.reject(r))
+                .then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    pv.innerHTML = `<img src="${url}" alt="preview">`;
+                    pv.innerHTML += `<span class="file-name">${names.join(', ')}</span>`;
+                })
+                .catch(() => {
+                    pv.innerHTML = `<span class="file-icon">📄</span>`;
+                    pv.innerHTML += `<span class="file-name">${names.join(', ')}</span>`;
+                });
+        } else {
+            const icons = { pptx: '📊', ppt: '📊', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊' };
+            const icon = icons[ext] || '📁';
+            pv.innerHTML = `<span class="file-icon">${icon}</span>`;
+            pv.innerHTML += `<span class="file-name">${names.join(', ')}</span>`;
+        }
+    }
     document.querySelectorAll(".drop-zone").forEach(zone => {
         const input = zone.querySelector("input[type=file]");
+        const dropText = zone.querySelector(".drop-text");
+        const dropHint = zone.querySelector(".drop-hint");
+        const defaultText = dropText ? dropText.textContent : '';
         ["dragenter","dragover","dragleave","drop"].forEach(evt => {
             zone.addEventListener(evt, e => { e.preventDefault(); e.stopPropagation(); });
         });
@@ -133,16 +192,19 @@
             input.dispatchEvent(new Event("change"));
         });
         input.addEventListener("change", () => {
-            if (input.files.length > 0) zone.classList.add("has-file");
-            else zone.classList.remove("has-file");
+            if (input.files.length > 0) {
+                showPreview(zone, dropText, dropHint, input.files);
+            } else {
+                showDefault(zone, dropText, dropHint, defaultText);
+            }
         });
     });
 
     // Form handlers
     function bindForm(id, url) {
         const form = document.getElementById(id);
-        const num = id.split("-").pop();
-        const result = document.getElementById("result-" + ({"pdf-ppt":"1","ppt-images":"2","pdf-images":"3","images-pdf":"4"}[id]));
+        const key = id.replace("form-", "");
+        const result = document.getElementById("result-" + ({"pdf-ppt":"1","ppt-images":"2","pdf-images":"3","images-pdf":"4"}[key]));
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
             const fd = new FormData(form);
@@ -155,9 +217,9 @@
                 const downloadUrl = URL.createObjectURL(blob);
                 const disp = resp.headers.get("Content-Disposition") || "";
                 const name = disp.match(/filename="?(.+?)"?$/)?.[1] || "download";
-                result.innerHTML = `<a href="\${downloadUrl}" download="\${name}" class="btn btn-success">下载 \${name}</a>`;
+                result.innerHTML = `<a href="${downloadUrl}" download="${name}" class="btn btn-success">下载 ${name}</a>`;
             } catch (err) {
-                result.innerHTML = `<span style="color:#ff6b6b;">\${err.message}</span>`;
+                result.innerHTML = `<span style="color:#ff6b6b;">${err.message}</span>`;
             }
         });
     }

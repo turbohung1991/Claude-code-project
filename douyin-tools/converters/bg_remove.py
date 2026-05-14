@@ -9,8 +9,42 @@ from urllib.error import URLError
 from PIL import Image, ImageFilter
 from rembg import remove, new_session
 
-REMOVE_BG_API_KEY = os.environ.get("REMOVE_BG_API_KEY", "")
-CLIPDROP_API_KEY = os.environ.get("CLIPDROP_API_KEY", "")
+# Config file for user-configured API keys
+_CONFIG_DIR = Path.home() / ".vibecoding"
+_CONFIG_FILE = _CONFIG_DIR / "bgremove_keys.json"
+
+
+def _load_config():
+    """Load API keys from config file."""
+    if _CONFIG_FILE.exists():
+        try:
+            with open(_CONFIG_FILE) as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def _save_config(data):
+    """Save API keys to config file."""
+    _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    with open(_CONFIG_FILE, "w") as f:
+        json.dump(data, f, indent=2)
+
+
+def get_api_keys():
+    """Get configured API keys (config file > env vars)."""
+    config = _load_config()
+    return {
+        "clipdrop": config.get("clipdrop") or os.environ.get("CLIPDROP_API_KEY", ""),
+        "remove_bg": config.get("remove_bg") or os.environ.get("REMOVE_BG_API_KEY", ""),
+    }
+
+
+def _get_api_key(service):
+    """Get API key for a given service (config > env)."""
+    keys = get_api_keys()
+    return keys.get(service, "")
 
 REMOVE_BG_URL = "https://api.remove.bg/v1.0/removebg"
 CLIPDROP_URL = "https://clipdrop-api.co/remove-background/v1"
@@ -73,8 +107,9 @@ def _build_multipart(fields: list, boundary: str = None) -> tuple:
 
 def _remove_via_clipdrop(image_bytes: bytes) -> bytes:
     """Call Clipdrop (Stability AI / Jasper) API."""
-    if not CLIPDROP_API_KEY:
-        raise RuntimeError("未设置 CLIPDROP_API_KEY 环境变量。请在 https://clipdrop.co/apis 获取 API Key。")
+    api_key = _get_api_key("clipdrop")
+    if not api_key:
+        raise RuntimeError("未配置 Clipdrop API Key。请在页面设置中填入 API Key，或设置 CLIPDROP_API_KEY 环境变量。")
 
     body, boundary = _build_multipart([
         ("image_file", image_bytes, "image.png"),
@@ -84,7 +119,7 @@ def _remove_via_clipdrop(image_bytes: bytes) -> bytes:
         CLIPDROP_URL,
         data=body,
         headers={
-            "x-api-key": CLIPDROP_API_KEY,
+            "x-api-key": api_key,
             "Content-Type": "multipart/form-data; boundary=" + boundary,
         },
         method="POST",
@@ -115,8 +150,9 @@ def _remove_via_clipdrop(image_bytes: bytes) -> bytes:
 
 def _remove_via_removebg(image_bytes: bytes) -> bytes:
     """Call remove.bg API."""
-    if not REMOVE_BG_API_KEY:
-        raise RuntimeError("未设置 REMOVE_BG_API_KEY。请在 https://www.remove.bg/api 获取免费 API Key。")
+    api_key = _get_api_key("remove_bg")
+    if not api_key:
+        raise RuntimeError("未配置 remove.bg API Key。请在页面设置中填入 API Key，或设置 REMOVE_BG_API_KEY 环境变量。")
 
     body, boundary = _build_multipart([
         ("image_file", image_bytes, "image.png"),
@@ -127,7 +163,7 @@ def _remove_via_removebg(image_bytes: bytes) -> bytes:
         REMOVE_BG_URL,
         data=body,
         headers={
-            "X-Api-Key": REMOVE_BG_API_KEY,
+            "X-Api-Key": api_key,
             "Content-Type": "multipart/form-data; boundary=" + boundary,
             "User-Agent": "ClaudeCodeConverter/1.0",
         },
