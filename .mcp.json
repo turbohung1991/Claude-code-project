@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "weixin-reader": {
+      "command": "/Users/admin/bin/python3.14",
+      "args": [
+        "/Users/admin/claude code project/.claude/skills/qiaomu-anything-to-notebooklm/wexin-read-mcp/src/server.py"
+      ]
+    }
+  }
+}

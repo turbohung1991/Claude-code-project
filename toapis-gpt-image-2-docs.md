@@ -1,0 +1,794 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - link "跳转到主要内容" [ref=e3] [cursor=pointer]:
+      - /url: "#content-area"
+    - generic [ref=e5]:
+      - generic [ref=e9]:
+        - generic [ref=e12]:
+          - generic [ref=e13]:
+            - link "ToAPIs Documentation home page light logo" [ref=e14] [cursor=pointer]:
+              - /url: /docs/cn
+              - generic [ref=e15]: ToAPIs Documentation home page
+              - img "light logo" [ref=e16]
+            - button "简体中文" [ref=e18] [cursor=pointer]:
+              - generic [ref=e19]: 简体中文
+              - img [ref=e20]
+          - button "打开搜索" [ref=e23] [cursor=pointer]:
+            - generic [ref=e24]:
+              - img [ref=e25]
+              - generic [ref=e28]: 搜索...
+            - generic [ref=e29]: ⌘K
+          - generic [ref=e30]:
+            - navigation [ref=e31]:
+              - list [ref=e32]:
+                - listitem [ref=e33]:
+                  - link "X" [ref=e34] [cursor=pointer]:
+                    - /url: https://x.com/toapisai
+                - listitem [ref=e35]:
+                  - link "Discord" [ref=e36] [cursor=pointer]:
+                    - /url: https://discord.gg/hvnszCrJ73
+                - listitem [ref=e37]:
+                  - link "WeChat" [ref=e38] [cursor=pointer]:
+                    - /url: https://toapis.com/wechat
+                - listitem [ref=e39]:
+                  - link "Dashboard" [ref=e40] [cursor=pointer]:
+                    - /url: https://toapis.com/dashboard
+                    - generic [ref=e42]:
+                      - generic [ref=e43]: Dashboard
+                      - img [ref=e44]
+            - button "切换深色模式" [ref=e47] [cursor=pointer]:
+              - img [ref=e48]
+        - link "API 手册" [ref=e57] [cursor=pointer]:
+          - /url: /docs/cn
+          - text: API 手册
+      - generic [ref=e59]:
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - heading "概览" [level=5] [ref=e66]
+            - list [ref=e67]:
+              - listitem [ref=e68]:
+                - link "ToAPIs — OpenAI 兼容 API 网关" [ref=e69] [cursor=pointer]:
+                  - /url: /docs/cn
+                  - generic [ref=e72]: ToAPIs — OpenAI 兼容 API 网关
+          - generic [ref=e73]:
+            - heading "快速上手" [level=5] [ref=e75]
+            - list [ref=e76]:
+              - listitem [ref=e77]:
+                - link "Claude Code" [ref=e78] [cursor=pointer]:
+                  - /url: /docs/cn/integrations/claude-code
+                  - generic [ref=e81]: Claude Code
+              - listitem [ref=e82]:
+                - link "OpenClaw" [ref=e83] [cursor=pointer]:
+                  - /url: /docs/cn/integrations/openclaw
+                  - generic [ref=e86]: OpenClaw
+              - listitem [ref=e87]:
+                - link "Cherry Studio" [ref=e88] [cursor=pointer]:
+                  - /url: /docs/cn/integrations/cherry-studio
+                  - generic [ref=e91]: Cherry Studio
+          - generic [ref=e92]:
+            - heading "文本对话系列" [level=5] [ref=e94]
+            - list [ref=e95]:
+              - listitem [ref=e96]:
+                - link "模型一览" [ref=e97] [cursor=pointer]:
+                  - /url: /docs/cn/api-reference/chat/models
+                  - generic [ref=e100]: 模型一览
+              - listitem [ref=e101]:
+                - link "GET 列出模型" [ref=e102] [cursor=pointer]:
+                  - /url: /docs/cn/api-reference/chat/list-models
+                  - generic [ref=e105]: GET
+                  - generic [ref=e108]: 列出模型
+              - listitem [ref=e109]:
+                - button "切换GPT-5 系列部分" [ref=e110] [cursor=pointer]:
+                  - generic [ref=e111]: GPT-5 系列
+                  - img [ref=e113]
+              - listitem [ref=e115]:
+                - button "切换OpenAI 格式部分" [ref=e116] [cursor=pointer]:
+                  - generic [ref=e117]: OpenAI 格式
+                  - img [ref=e119]
+              - listitem [ref=e121]:
+                - button "切换Anthropic 格式部分" [ref=e122] [cursor=pointer]:
+                  - generic [ref=e123]: Anthropic 格式
+                  - img [ref=e125]
+              - listitem [ref=e127]:
+                - button "切换Responses 格式部分" [ref=e128] [cursor=pointer]:
+                  - generic [ref=e129]: Responses 格式
+                  - img [ref=e131]
+          - generic [ref=e133]:
+            - heading "图像系列" [level=5] [ref=e135]
+            - list [ref=e136]:
+              - listitem [ref=e137]:
+                - button "切换Gemini-3-Pro-Image-preview（Nano banana Pro）部分" [ref=e138] [cursor=pointer]:
+                  - generic [ref=e139]: Gemini-3-Pro-Image-preview（Nano banana Pro）
+                  - img [ref=e141]
+              - listitem [ref=e143]:
+                - button "切换Gemini-3.1-Flash-Image-preview（Nano banana2）部分" [ref=e144] [cursor=pointer]:
+                  - generic [ref=e145]: Gemini-3.1-Flash-Image-preview（Nano banana2）
+                  - img [ref=e147]
+              - listitem [ref=e149]:
+                - button "切换Gemini-2.5-Flash-Image-preview（Nano banana）部分" [ref=e150] [cursor=pointer]:
+                  - generic [ref=e151]: Gemini-2.5-Flash-Image-preview（Nano banana）
+                  - img [ref=e153]
+              - listitem [ref=e155]:
+                - button "切换Gemini-3-Pro-Image Official部分" [ref=e156] [cursor=pointer]:
+                  - generic [ref=e157]: Gemini-3-Pro-Image Official
+                  - img [ref=e159]
+              - listitem [ref=e161]:
+                - button "切换Gemini-3.1-Flash-Image Official部分" [ref=e162] [cursor=pointer]:
+                  - generic [ref=e163]: Gemini-3.1-Flash-Image Official
+                  - img [ref=e165]
+              - listitem [ref=e167]:
+                - button "切换Gemini-2.5-Flash-Image Official部分" [ref=e168] [cursor=pointer]:
+                  - generic [ref=e169]: Gemini-2.5-Flash-Image Official
+                  - img [ref=e171]
+              - listitem [ref=e173]:
+                - button "切换GPT-4o-image部分" [ref=e174] [cursor=pointer]:
+                  - generic [ref=e175]: GPT-4o-image
+                  - img [ref=e177]
+              - listitem [ref=e179]:
+                - button "切换GPT-Image-2部分" [expanded] [ref=e180] [cursor=pointer]:
+                  - generic [ref=e181]: GPT-Image-2
+                  - img [ref=e183]
+                - list [ref=e185]:
+                  - listitem [ref=e186]:
+                    - link "POST gpt-image-2" [ref=e187] [cursor=pointer]:
+                      - /url: /docs/cn/api-reference/images/gpt-image-2/generation
+                      - generic [ref=e190]: POST
+                      - generic [ref=e193]: gpt-image-2
+                  - listitem [ref=e194]:
+                    - link "POST gpt-image-1.5-official" [ref=e195] [cursor=pointer]:
+                      - /url: /docs/cn/api-reference/images/gpt-image-2/official
+                      - generic [ref=e198]: POST
+                      - generic [ref=e201]: gpt-image-1.5-official
+                  - listitem [ref=e202]:
+                    - link "POST 图像编辑 (Edits)" [ref=e203] [cursor=pointer]:
+                      - /url: /docs/cn/api-reference/images/gpt-image-2/edits
+                      - generic [ref=e206]: POST
+                      - generic [ref=e209]: 图像编辑 (Edits)
+              - listitem [ref=e210]:
+                - button "切换Seedream-4.0部分" [ref=e211] [cursor=pointer]:
+                  - generic [ref=e212]: Seedream-4.0
+                  - img [ref=e214]
+              - listitem [ref=e216]:
+                - button "切换Seedream-4.5部分" [ref=e217] [cursor=pointer]:
+                  - generic [ref=e218]: Seedream-4.5
+                  - img [ref=e220]
+              - listitem [ref=e222]:
+                - button "切换Seedream-5.0部分" [ref=e223] [cursor=pointer]:
+                  - generic [ref=e224]: Seedream-5.0
+                  - img [ref=e226]
+              - listitem [ref=e228]:
+                - button "切换Flux Kontext部分" [ref=e229] [cursor=pointer]:
+                  - generic [ref=e230]: Flux Kontext
+                  - img [ref=e232]
+              - listitem [ref=e234]:
+                - button "切换Flux 2.0部分" [ref=e235] [cursor=pointer]:
+                  - generic [ref=e236]: Flux 2.0
+                  - img [ref=e238]
+              - listitem [ref=e240]:
+                - button "切换Grok Image部分" [ref=e241] [cursor=pointer]:
+                  - generic [ref=e242]: Grok Image
+                  - img [ref=e244]
+              - listitem [ref=e246]:
+                - button "切换Grok Imagine 1.0部分" [ref=e247] [cursor=pointer]:
+                  - generic [ref=e248]: Grok Imagine 1.0
+                  - img [ref=e250]
+          - generic [ref=e252]:
+            - heading "视频系列" [level=5] [ref=e254]
+            - list [ref=e255]:
+              - listitem [ref=e256]:
+                - button "切换Sora2部分" [ref=e257] [cursor=pointer]:
+                  - generic [ref=e258]: Sora2
+                  - img [ref=e260]
+              - listitem [ref=e262]:
+                - button "切换Sora 2 Official (Azure)部分" [ref=e263] [cursor=pointer]:
+                  - generic [ref=e264]: Sora 2 Official (Azure)
+                  - img [ref=e266]
+              - listitem [ref=e268]:
+                - button "切换Veo3部分" [ref=e269] [cursor=pointer]:
+                  - generic [ref=e270]: Veo3
+                  - img [ref=e272]
+              - listitem [ref=e274]:
+                - button "切换Veo3 Official部分" [ref=e275] [cursor=pointer]:
+                  - generic [ref=e276]: Veo3 Official
+                  - img [ref=e278]
+              - listitem [ref=e280]:
+                - button "切换doubao-seedance-1-0-pro部分" [ref=e281] [cursor=pointer]:
+                  - generic [ref=e282]: doubao-seedance-1-0-pro
+                  - img [ref=e284]
+              - listitem [ref=e286]:
+                - button "切换doubao-seedance-1-5-pro部分" [ref=e287] [cursor=pointer]:
+                  - generic [ref=e288]: doubao-seedance-1-5-pro
+                  - img [ref=e290]
+              - listitem [ref=e292]:
+                - button "切换doubao-seedance-2-0部分" [ref=e293] [cursor=pointer]:
+                  - generic [ref=e294]: doubao-seedance-2-0
+                  - img [ref=e296]
+              - listitem [ref=e298]:
+                - button "切换seedance-2部分" [ref=e299] [cursor=pointer]:
+                  - generic [ref=e300]: seedance-2
+                  - img [ref=e302]
+              - listitem [ref=e304]:
+                - button "切换HappyHorse部分" [ref=e305] [cursor=pointer]:
+                  - generic [ref=e306]: HappyHorse
+                  - img [ref=e308]
+              - listitem [ref=e310]:
+                - button "切换MiniMax-Hailuo-02部分" [ref=e311] [cursor=pointer]:
+                  - generic [ref=e312]: MiniMax-Hailuo-02
+                  - img [ref=e314]
+              - listitem [ref=e316]:
+                - button "切换Wan2.6部分" [ref=e317] [cursor=pointer]:
+                  - generic [ref=e318]: Wan2.6
+                  - img [ref=e320]
+              - listitem [ref=e322]:
+                - button "切换Kling v2.6部分" [ref=e323] [cursor=pointer]:
+                  - generic [ref=e324]: Kling v2.6
+                  - img [ref=e326]
+              - listitem [ref=e328]:
+                - button "切换Kling v3部分" [ref=e329] [cursor=pointer]:
+                  - generic [ref=e330]: Kling v3
+                  - img [ref=e332]
+              - listitem [ref=e334]:
+                - button "切换Kling v3 Omni部分" [ref=e335] [cursor=pointer]:
+                  - generic [ref=e336]: Kling v3 Omni
+                  - img [ref=e338]
+              - listitem [ref=e340]:
+                - button "切换Kling Video O1部分" [ref=e341] [cursor=pointer]:
+                  - generic [ref=e342]: Kling Video O1
+                  - img [ref=e344]
+              - listitem [ref=e346]:
+                - button "切换MiniMax-Hailuo-2.3部分" [ref=e347] [cursor=pointer]:
+                  - generic [ref=e348]: MiniMax-Hailuo-2.3
+                  - img [ref=e350]
+              - listitem [ref=e352]:
+                - button "切换Vidu Q3部分" [ref=e353] [cursor=pointer]:
+                  - generic [ref=e354]: Vidu Q3
+                  - img [ref=e356]
+              - listitem [ref=e358]:
+                - button "切换Grok Video部分" [ref=e359] [cursor=pointer]:
+                  - generic [ref=e360]: Grok Video
+                  - img [ref=e362]
+          - generic [ref=e364]:
+            - heading "任务管理" [level=5] [ref=e366]
+            - list [ref=e367]:
+              - listitem [ref=e368]:
+                - button "切换获取图片任务状态部分" [ref=e369] [cursor=pointer]:
+                  - generic [ref=e370]: 获取图片任务状态
+                  - img [ref=e372]
+              - listitem [ref=e374]:
+                - button "切换获取视频任务状态部分" [ref=e375] [cursor=pointer]:
+                  - generic [ref=e376]: 获取视频任务状态
+                  - img [ref=e378]
+          - generic [ref=e380]:
+            - heading "文件上传" [level=5] [ref=e382]
+            - list [ref=e383]:
+              - listitem [ref=e384]:
+                - link "POST 上传图片" [ref=e385] [cursor=pointer]:
+                  - /url: /docs/cn/api-reference/uploads/images
+                  - generic [ref=e388]: POST
+                  - generic [ref=e391]: 上传图片
+          - generic [ref=e392]:
+            - heading "账户" [level=5] [ref=e394]
+            - list [ref=e395]:
+              - listitem [ref=e396]:
+                - link "GET 查询令牌余额" [ref=e397] [cursor=pointer]:
+                  - /url: /docs/cn/api-reference/account/token-balance
+                  - generic [ref=e400]: GET
+                  - generic [ref=e403]: 查询令牌余额
+              - listitem [ref=e404]:
+                - link "GET 查询用户余额" [ref=e405] [cursor=pointer]:
+                  - /url: /docs/cn/api-reference/account/user-balance
+                  - generic [ref=e408]: GET
+                  - generic [ref=e411]: 查询用户余额
+              - listitem [ref=e412]:
+                - link "POST 创建令牌" [ref=e413] [cursor=pointer]:
+                  - /url: /docs/cn/api-reference/account/create-token
+                  - generic [ref=e416]: POST
+                  - generic [ref=e419]: 创建令牌
+        - generic [ref=e421]:
+          - generic [ref=e423]:
+            - generic [ref=e424]:
+              - generic [ref=e425]:
+                - tablist [ref=e426]:
+                  - tab "cURL" [selected] [ref=e427] [cursor=pointer]:
+                    - generic [ref=e428]: cURL
+                  - tab "cURL (图生图)" [ref=e430] [cursor=pointer]:
+                    - generic [ref=e431]: cURL (图生图)
+                  - tab "JavaScript" [ref=e432] [cursor=pointer]:
+                    - generic [ref=e433]: JavaScript
+                - button "复制代码块内容" [ref=e436] [cursor=pointer]:
+                  - img [ref=e437]
+              - tabpanel "cURL" [ref=e441]:
+                - code [ref=e446]:
+                  - generic [ref=e447]: curl --request POST \
+                  - generic [ref=e448]: "--url https://toapis.com/v1/images/generations \\"
+                  - generic [ref=e449]: "--header 'Authorization: Bearer <token>' \\"
+                  - generic [ref=e450]: "--header 'Content-Type: application/json' \\"
+                  - generic [ref=e451]: "--data '{"
+                  - generic [ref=e452]: "\"model\": \"gpt-image-2\","
+                  - generic [ref=e453]: "\"prompt\": \"生成一张未来城市夜景海报，霓虹灯，电影感构图\","
+                  - generic [ref=e454]: "\"n\": 1,"
+                  - generic [ref=e455]: "\"size\": \"1:1\","
+                  - generic [ref=e456]: "\"resolution\": \"1K\","
+                  - generic [ref=e457]: "\"response_format\": \"url\""
+                  - generic [ref=e458]: "}'"
+            - generic [ref=e459]:
+              - generic [ref=e460]:
+                - tablist [ref=e461]:
+                  - tab "200" [selected] [ref=e462] [cursor=pointer]:
+                    - generic [ref=e463]: "200"
+                - button "复制代码块内容" [ref=e467] [cursor=pointer]:
+                  - img [ref=e468]
+              - tabpanel "200" [ref=e472]:
+                - code [ref=e477]:
+                  - generic [ref=e478]: "{"
+                  - generic [ref=e479]: "\"id\": \"task_img_abc123def456\","
+                  - generic [ref=e480]: "\"object\": \"generation.task\","
+                  - generic [ref=e481]: "\"model\": \"gpt-image-2\","
+                  - generic [ref=e482]: "\"status\": \"queued\","
+                  - generic [ref=e483]: "\"progress\": 0,"
+                  - generic [ref=e484]: "\"created_at\": 1703884800,"
+                  - generic [ref=e485]: "\"metadata\": {}"
+                  - generic [ref=e486]: "}"
+          - generic [ref=e487]:
+            - banner [ref=e488]:
+              - generic [ref=e489]:
+                - generic [ref=e490]: GPT-Image-2
+                - heading "GPT-Image-2 图像生成" [level=1] [ref=e492]
+              - paragraph [ref=e494]: 使用 gpt-image-2 模型生成图像，支持文生图和 reference_images 图生图
+            - generic [ref=e495]:
+              - generic [ref=e498]:
+                - generic [ref=e499] [cursor=pointer]:
+                  - generic [ref=e500]: POST
+                  - generic [ref=e502]:
+                    - generic [ref=e503]: /
+                    - generic [ref=e504]: v1
+                    - generic [ref=e505]: /
+                    - generic [ref=e506]: images
+                    - generic [ref=e507]: /
+                    - generic [ref=e508]: generations
+                - button "试一试" [ref=e509] [cursor=pointer]:
+                  - generic [ref=e510]: 试一试
+                  - img [ref=e511]
+              - generic [ref=e512]:
+                - blockquote [ref=e513]:
+                  - heading "Documentation Index" [level=2] [ref=e514]
+                  - paragraph [ref=e515]:
+                    - text: "Fetch the complete documentation index at:"
+                    - link "https://docs.toapis.com/llms.txt" [ref=e516] [cursor=pointer]:
+                      - /url: https://docs.toapis.com/llms.txt
+                  - paragraph [ref=e517]: Use this file to discover all available pages before exploring further.
+                - list [ref=e518]:
+                  - listitem [ref=e519]: 统一的图像生成 API 接口
+                  - listitem [ref=e520]:
+                    - text: 通过
+                    - code [ref=e521]: model
+                    - text: 参数选择
+                    - code [ref=e522]: gpt-image-2
+                  - listitem [ref=e523]: 支持文生图、单图参考和多图参考生成
+                  - listitem [ref=e524]: 异步任务管理，通过任务 ID 查询结果
+                - generic [ref=e525]:
+                  - img "警告" [ref=e527]
+                  - generic [ref=e530]:
+                    - strong [ref=e531]: 重要变更
+                    - text: ：为了更好的性能和成本控制，我们不再支持在
+                    - code [ref=e532]: image_urls
+                    - text: /
+                    - code [ref=e533]: reference_images
+                    - text: 中直接传入 base64 图片数据。请先使用
+                    - link "上传图片接口" [ref=e534] [cursor=pointer]:
+                      - /url: /docs/cn/api-reference/uploads/images
+                    - text: 上传图片，获取 URL 后再调用本接口。
+                - heading "导航到标题 Authorizations" [level=2] [ref=e535]:
+                  - link "导航到标题" [ref=e536] [cursor=pointer]:
+                    - /url: "#authorizations"
+                    - img [ref=e538]
+                  - generic [ref=e540] [cursor=pointer]: Authorizations
+                - generic [ref=e541]:
+                  - generic [ref=e544]:
+                    - link "导航到标题" [ref=e545] [cursor=pointer]:
+                      - /url: "#param-authorization"
+                      - img [ref=e547]
+                    - generic [ref=e549] [cursor=pointer]: Authorization
+                    - generic [ref=e550]:
+                      - generic [ref=e551]: string
+                      - text: 必填
+                  - generic [ref=e552]:
+                    - generic [ref=e553]: 所有接口均需要使用 Bearer Token 进行认证
+                    - generic [ref=e554]:
+                      - text: 获取 API Key：访问
+                      - link "API Key 管理页面" [ref=e555] [cursor=pointer]:
+                        - /url: https://toapis.com/console/token
+                      - text: 获取您的 API Key
+                    - generic [ref=e556]: 使用时在请求头中添加：
+                    - generic [ref=e557]:
+                      - button "复制代码块内容" [ref=e560] [cursor=pointer]:
+                        - img [ref=e561]
+                      - code [ref=e567]:
+                        - generic [ref=e568]: "Authorization: Bearer YOUR_API_KEY"
+                - heading "导航到标题 Body" [level=2] [ref=e569]:
+                  - link "导航到标题" [ref=e570] [cursor=pointer]:
+                    - /url: "#body"
+                    - img [ref=e572]
+                  - generic [ref=e574] [cursor=pointer]: Body
+                - generic [ref=e575]:
+                  - generic [ref=e578]:
+                    - link "导航到标题" [ref=e579] [cursor=pointer]:
+                      - /url: "#param-model"
+                      - img [ref=e581]
+                    - generic [ref=e583] [cursor=pointer]: model
+                    - generic [ref=e584]:
+                      - generic [ref=e585]: string
+                      - generic [ref=e586]: 默认值:"gpt-image-2"
+                      - text: 必填
+                  - generic [ref=e587]:
+                    - generic [ref=e588]: 图像生成模型名称
+                    - generic [ref=e589]:
+                      - text: 示例：
+                      - code [ref=e590]: "\"gpt-image-2\""
+                - generic [ref=e591]:
+                  - generic [ref=e594]:
+                    - link "导航到标题" [ref=e595] [cursor=pointer]:
+                      - /url: "#param-prompt"
+                      - img [ref=e597]
+                    - generic [ref=e599] [cursor=pointer]: prompt
+                    - generic [ref=e600]:
+                      - generic [ref=e601]: string
+                      - text: 必填
+                  - generic [ref=e602]:
+                    - generic [ref=e603]: 图像生成的文本描述
+                    - generic [ref=e604]: 最长 32,000 个字符（GPT image models 官方上限）
+                - generic [ref=e605]:
+                  - generic [ref=e608]:
+                    - link "导航到标题" [ref=e609] [cursor=pointer]:
+                      - /url: "#param-size"
+                      - img [ref=e611]
+                    - generic [ref=e613] [cursor=pointer]: size
+                    - generic [ref=e614]:
+                      - generic [ref=e615]: string
+                      - generic [ref=e616]: 默认值:"1:1"
+                  - generic [ref=e617]:
+                    - generic [ref=e618]: 输出图像比例
+                    - generic [ref=e619]:
+                      - text: 支持值取决于
+                      - code [ref=e620]: resolution
+                      - text: ：
+                    - list [ref=e621]:
+                      - listitem [ref=e622]:
+                        - code [ref=e623]: 1K
+                        - text: ：
+                        - code [ref=e624]: 1:1
+                        - text: 、
+                        - code [ref=e625]: 3:2
+                        - text: 、
+                        - code [ref=e626]: 2:3
+                      - listitem [ref=e627]:
+                        - code [ref=e628]: 2K
+                        - text: ：
+                        - code [ref=e629]: 1:1
+                        - text: 、
+                        - code [ref=e630]: 3:2
+                        - text: 、
+                        - code [ref=e631]: 2:3
+                        - text: 、
+                        - code [ref=e632]: 4:3
+                        - text: 、
+                        - code [ref=e633]: 3:4
+                        - text: 、
+                        - code [ref=e634]: 5:4
+                        - text: 、
+                        - code [ref=e635]: 4:5
+                        - text: 、
+                        - code [ref=e636]: 16:9
+                        - text: 、
+                        - code [ref=e637]: 9:16
+                        - text: 、
+                        - code [ref=e638]: 2:1
+                        - text: 、
+                        - code [ref=e639]: 1:2
+                        - text: 、
+                        - code [ref=e640]: 21:9
+                        - text: 、
+                        - code [ref=e641]: 9:21
+                      - listitem [ref=e642]:
+                        - code [ref=e643]: 4K
+                        - text: ：
+                        - code [ref=e644]: 16:9
+                        - text: 、
+                        - code [ref=e645]: 9:16
+                        - text: 、
+                        - code [ref=e646]: 2:1
+                        - text: 、
+                        - code [ref=e647]: 1:2
+                        - text: 、
+                        - code [ref=e648]: 21:9
+                        - text: 、
+                        - code [ref=e649]: 9:21
+                - generic [ref=e650]:
+                  - generic [ref=e653]:
+                    - link "导航到标题" [ref=e654] [cursor=pointer]:
+                      - /url: "#param-resolution"
+                      - img [ref=e656]
+                    - generic [ref=e658] [cursor=pointer]: resolution
+                    - generic [ref=e659]:
+                      - generic [ref=e660]: string
+                      - generic [ref=e661]: 默认值:"1K"
+                  - generic [ref=e662]:
+                    - generic [ref=e663]: 输出分辨率档位
+                    - generic [ref=e664]:
+                      - text: 支持值：
+                      - code [ref=e665]: 1K
+                      - text: 、
+                      - code [ref=e666]: 2K
+                      - text: 、
+                      - code [ref=e667]: 4K
+                - heading "导航到标题 尺寸对照表" [level=3] [ref=e668]:
+                  - link "导航到标题" [ref=e669] [cursor=pointer]:
+                    - /url: "#尺寸对照表"
+                    - img [ref=e671]
+                  - generic [ref=e673] [cursor=pointer]: 尺寸对照表
+                - table [ref=e676]:
+                  - rowgroup [ref=e677]:
+                    - row "size 1K 2K 4K" [ref=e678]:
+                      - columnheader "size" [ref=e679]
+                      - columnheader "1K" [ref=e680]
+                      - columnheader "2K" [ref=e681]
+                      - columnheader "4K" [ref=e682]
+                  - rowgroup [ref=e683]:
+                    - row "1:1 1024x1024 2048x2048 不支持" [ref=e684]:
+                      - cell "1:1" [ref=e685]:
+                        - code [ref=e686]: 1:1
+                      - cell "1024x1024" [ref=e687]:
+                        - code [ref=e688]: 1024x1024
+                      - cell "2048x2048" [ref=e689]:
+                        - code [ref=e690]: 2048x2048
+                      - cell "不支持" [ref=e691]
+                    - row "3:2 1536x1024 2048x1360 不支持" [ref=e692]:
+                      - cell "3:2" [ref=e693]:
+                        - code [ref=e694]: 3:2
+                      - cell "1536x1024" [ref=e695]:
+                        - code [ref=e696]: 1536x1024
+                      - cell "2048x1360" [ref=e697]:
+                        - code [ref=e698]: 2048x1360
+                      - cell "不支持" [ref=e699]
+                    - row "2:3 1024x1536 1360x2048 不支持" [ref=e700]:
+                      - cell "2:3" [ref=e701]:
+                        - code [ref=e702]: 2:3
+                      - cell "1024x1536" [ref=e703]:
+                        - code [ref=e704]: 1024x1536
+                      - cell "1360x2048" [ref=e705]:
+                        - code [ref=e706]: 1360x2048
+                      - cell "不支持" [ref=e707]
+                    - row "4:3 不支持 2048x1536 不支持" [ref=e708]:
+                      - cell "4:3" [ref=e709]:
+                        - code [ref=e710]: 4:3
+                      - cell "不支持" [ref=e711]
+                      - cell "2048x1536" [ref=e712]:
+                        - code [ref=e713]: 2048x1536
+                      - cell "不支持" [ref=e714]
+                    - row "3:4 不支持 1536x2048 不支持" [ref=e715]:
+                      - cell "3:4" [ref=e716]:
+                        - code [ref=e717]: 3:4
+                      - cell "不支持" [ref=e718]
+                      - cell "1536x2048" [ref=e719]:
+                        - code [ref=e720]: 1536x2048
+                      - cell "不支持" [ref=e721]
+                    - row "5:4 不支持 2560x2048 不支持" [ref=e722]:
+                      - cell "5:4" [ref=e723]:
+                        - code [ref=e724]: 5:4
+                      - cell "不支持" [ref=e725]
+                      - cell "2560x2048" [ref=e726]:
+                        - code [ref=e727]: 2560x2048
+                      - cell "不支持" [ref=e728]
+                    - row "4:5 不支持 2048x2560 不支持" [ref=e729]:
+                      - cell "4:5" [ref=e730]:
+                        - code [ref=e731]: 4:5
+                      - cell "不支持" [ref=e732]
+                      - cell "2048x2560" [ref=e733]:
+                        - code [ref=e734]: 2048x2560
+                      - cell "不支持" [ref=e735]
+                    - row "16:9 不支持 2048x1152 3840x2160" [ref=e736]:
+                      - cell "16:9" [ref=e737]:
+                        - code [ref=e738]: 16:9
+                      - cell "不支持" [ref=e739]
+                      - cell "2048x1152" [ref=e740]:
+                        - code [ref=e741]: 2048x1152
+                      - cell "3840x2160" [ref=e742]:
+                        - code [ref=e743]: 3840x2160
+                    - row "9:16 不支持 1152x2048 2160x3840" [ref=e744]:
+                      - cell "9:16" [ref=e745]:
+                        - code [ref=e746]: 9:16
+                      - cell "不支持" [ref=e747]
+                      - cell "1152x2048" [ref=e748]:
+                        - code [ref=e749]: 1152x2048
+                      - cell "2160x3840" [ref=e750]:
+                        - code [ref=e751]: 2160x3840
+                    - row "2:1 不支持 2688x1344 3840x1920" [ref=e752]:
+                      - cell "2:1" [ref=e753]:
+                        - code [ref=e754]: 2:1
+                      - cell "不支持" [ref=e755]
+                      - cell "2688x1344" [ref=e756]:
+                        - code [ref=e757]: 2688x1344
+                      - cell "3840x1920" [ref=e758]:
+                        - code [ref=e759]: 3840x1920
+                    - row "1:2 不支持 1344x2688 1920x3840" [ref=e760]:
+                      - cell "1:2" [ref=e761]:
+                        - code [ref=e762]: 1:2
+                      - cell "不支持" [ref=e763]
+                      - cell "1344x2688" [ref=e764]:
+                        - code [ref=e765]: 1344x2688
+                      - cell "1920x3840" [ref=e766]:
+                        - code [ref=e767]: 1920x3840
+                    - row "21:9 不支持 2688x1152 3840x1648" [ref=e768]:
+                      - cell "21:9" [ref=e769]:
+                        - code [ref=e770]: 21:9
+                      - cell "不支持" [ref=e771]
+                      - cell "2688x1152" [ref=e772]:
+                        - code [ref=e773]: 2688x1152
+                      - cell "3840x1648" [ref=e774]:
+                        - code [ref=e775]: 3840x1648
+                    - row "9:21 不支持 1152x2688 1648x3840" [ref=e776]:
+                      - cell "9:21" [ref=e777]:
+                        - code [ref=e778]: 9:21
+                      - cell "不支持" [ref=e779]
+                      - cell "1152x2688" [ref=e780]:
+                        - code [ref=e781]: 1152x2688
+                      - cell "1648x3840" [ref=e782]:
+                        - code [ref=e783]: 1648x3840
+                - generic [ref=e784]:
+                  - generic [ref=e787]:
+                    - link "导航到标题" [ref=e788] [cursor=pointer]:
+                      - /url: "#param-n"
+                      - img [ref=e790]
+                    - generic [ref=e792] [cursor=pointer]: "n"
+                    - generic [ref=e793]:
+                      - generic [ref=e794]: integer
+                      - generic [ref=e795]: 默认值:1
+                  - generic [ref=e796]:
+                    - generic [ref=e797]: 生成图像的数量
+                    - generic [ref=e798]: 默认：1
+                - generic [ref=e799]:
+                  - generic [ref=e802]:
+                    - link "导航到标题" [ref=e803] [cursor=pointer]:
+                      - /url: "#param-response-format"
+                      - img [ref=e805]
+                    - generic [ref=e807] [cursor=pointer]: response_format
+                    - generic [ref=e808]:
+                      - generic [ref=e809]: string
+                      - generic [ref=e810]: 默认值:"url"
+                  - generic [ref=e811]:
+                    - generic [ref=e812]: 返回格式
+                    - generic [ref=e813]:
+                      - text: 固定返回图片 URL，推荐使用
+                      - code [ref=e814]: url
+                - generic [ref=e815]:
+                  - generic [ref=e818]:
+                    - link "导航到标题" [ref=e819] [cursor=pointer]:
+                      - /url: "#param-reference-images"
+                      - img [ref=e821]
+                    - generic [ref=e823] [cursor=pointer]: reference_images
+                    - generic [ref=e825]: string[]
+                  - generic [ref=e826]:
+                    - generic [ref=e827]: 参考图 URL 列表，用于图生图
+                    - strong [ref=e829]: ⚠️ 仅支持 URL 格式（不再支持 base64）
+                    - list [ref=e830]:
+                      - listitem [ref=e831]: 公开可访问的图片 URL（http:// 或 https://）
+                      - listitem [ref=e832]:
+                        - text: 可使用
+                        - link "上传图片接口" [ref=e833] [cursor=pointer]:
+                          - /url: /docs/cn/api-reference/uploads/images
+                        - text: 上传本地图片获取 URL
+                      - listitem [ref=e834]: 支持单图和多图参考
+                - generic [ref=e835]:
+                  - generic [ref=e838]:
+                    - link "导航到标题" [ref=e839] [cursor=pointer]:
+                      - /url: "#param-image-urls"
+                      - img [ref=e841]
+                    - generic [ref=e843] [cursor=pointer]: image_urls
+                    - generic [ref=e845]: string[]
+                  - generic [ref=e846]:
+                    - generic [ref=e847]: 向后兼容的参考图字段
+                    - generic [ref=e848]:
+                      - text: 在 ToAPIs 中会自动归一化为
+                      - code [ref=e849]: reference_images
+                - heading "导航到标题 Response" [level=2] [ref=e850]:
+                  - link "导航到标题" [ref=e851] [cursor=pointer]:
+                    - /url: "#response"
+                    - img [ref=e853]
+                  - generic [ref=e855] [cursor=pointer]: Response
+                - generic [ref=e856]:
+                  - generic [ref=e859]:
+                    - link "导航到标题" [ref=e860] [cursor=pointer]:
+                      - /url: "#param-id"
+                      - img [ref=e862]
+                    - generic [ref=e864] [cursor=pointer]: id
+                    - generic [ref=e866]: string
+                  - generic [ref=e868]: 任务唯一标识符，用于查询任务状态
+                - generic [ref=e869]:
+                  - generic [ref=e872]:
+                    - link "导航到标题" [ref=e873] [cursor=pointer]:
+                      - /url: "#param-object"
+                      - img [ref=e875]
+                    - generic [ref=e877] [cursor=pointer]: object
+                    - generic [ref=e879]: string
+                  - generic [ref=e881]:
+                    - text: 对象类型，固定为
+                    - code [ref=e882]: generation.task
+                - generic [ref=e883]:
+                  - generic [ref=e886]:
+                    - link "导航到标题" [ref=e887] [cursor=pointer]:
+                      - /url: "#param-model-1"
+                      - img [ref=e889]
+                    - generic [ref=e891] [cursor=pointer]: model
+                    - generic [ref=e893]: string
+                  - generic [ref=e895]: 使用的模型名称
+                - generic [ref=e896]:
+                  - generic [ref=e899]:
+                    - link "导航到标题" [ref=e900] [cursor=pointer]:
+                      - /url: "#param-status"
+                      - img [ref=e902]
+                    - generic [ref=e904] [cursor=pointer]: status
+                    - generic [ref=e906]: string
+                  - generic [ref=e907]:
+                    - generic [ref=e908]: 任务状态
+                    - list [ref=e909]:
+                      - listitem [ref=e910]:
+                        - code [ref=e911]: queued
+                        - text: "- 排队等待处理"
+                      - listitem [ref=e912]:
+                        - code [ref=e913]: in_progress
+                        - text: "- 处理中"
+                      - listitem [ref=e914]:
+                        - code [ref=e915]: completed
+                        - text: "- 成功完成"
+                      - listitem [ref=e916]:
+                        - code [ref=e917]: failed
+                        - text: "- 失败"
+                - generic [ref=e918]:
+                  - generic [ref=e921]:
+                    - link "导航到标题" [ref=e922] [cursor=pointer]:
+                      - /url: "#param-progress"
+                      - img [ref=e924]
+                    - generic [ref=e926] [cursor=pointer]: progress
+                    - generic [ref=e928]: integer
+                  - generic [ref=e930]: 任务进度百分比（0-100）
+                - generic [ref=e931]:
+                  - generic [ref=e934]:
+                    - link "导航到标题" [ref=e935] [cursor=pointer]:
+                      - /url: "#param-created-at"
+                      - img [ref=e937]
+                    - generic [ref=e939] [cursor=pointer]: created_at
+                    - generic [ref=e941]: integer
+                  - generic [ref=e943]: 任务创建时间戳（Unix 时间戳）
+            - generic [ref=e944]:
+              - link "GPT-4o-image" [ref=e945] [cursor=pointer]:
+                - /url: /docs/cn/api-reference/images/gpt-4o/generation
+                - img [ref=e946]
+                - generic [ref=e948]: GPT-4o-image
+              - link "gpt-image-1.5-official" [ref=e949] [cursor=pointer]:
+                - /url: /docs/cn/api-reference/images/gpt-image-2/official
+                - generic [ref=e950]: gpt-image-1.5-official
+                - img [ref=e951]
+            - contentinfo [ref=e953]:
+              - generic [ref=e954]:
+                - link "x" [ref=e955] [cursor=pointer]:
+                  - /url: https://x.com/toapisai
+                  - generic [ref=e956]: x
+                  - img [ref=e957]
+                - link "github" [ref=e958] [cursor=pointer]:
+                  - /url: https://github.com/ToAPIs
+                  - generic [ref=e959]: github
+                  - img [ref=e960]
+                - link "linkedin" [ref=e961] [cursor=pointer]:
+                  - /url: https://linkedin.com/company/ToAPIs
+                  - generic [ref=e962]: linkedin
+                  - img [ref=e963]
+                - link "discord" [ref=e964] [cursor=pointer]:
+                  - /url: https://discord.gg/hvnszCrJ73
+                  - generic [ref=e965]: discord
+                  - img [ref=e966]
+              - link "技术支持 This documentation is built and hosted on Mintlify, a developer documentation platform" [ref=e969] [cursor=pointer]:
+                - /url: https://www.mintlify.com?utm_campaign=poweredBy&utm_medium=referral&utm_source=dashlyai
+                - generic [ref=e970]: 技术支持
+                - img [ref=e971]
+                - generic [ref=e980]: This documentation is built and hosted on Mintlify, a developer documentation platform
+  - alert [ref=e981]
