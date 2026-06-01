@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>售后智能助手</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font:14px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;background:#f5f6f8;color:#333}
+.header{background:#fff;padding:16px 20px;border-bottom:1px solid #e8e8e8;display:flex;align-items:center;gap:12px}
+.header h1{font-size:18px;font-weight:600;color:#1a1a1a}
+.header .badge{background:#52c41a;color:#fff;padding:2px 10px;border-radius:10px;font-size:12px}
+.container{max-width:800px;margin:0 auto;padding:16px}
+.card{background:#fff;border-radius:8px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,0.06)}
+.card-title{font-size:14px;font-weight:600;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+.card-title .icon{font-size:18px}
+.form-row{display:flex;gap:12px;margin-bottom:10px}
+.form-row:last-child{margin-bottom:0}
+.form-group{flex:1}
+.form-group label{display:block;font-size:12px;color:#888;margin-bottom:4px}
+.form-group input,.form-group textarea,.form-group select{width:100%;padding:8px 12px;border:1px solid #d9d9d9;border-radius:6px;font-size:13px;outline:none;transition:border-color .2s}
+.form-group input:focus,.form-group textarea:focus{border-color:#1677ff;box-shadow:0 0 0 2px rgba(22,119,255,0.1)}
+.form-group textarea{resize:vertical;min-height:60px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 20px;border:none;border-radius:6px;font-size:14px;cursor:pointer;font-weight:500;transition:all .2s}
+.btn-primary{background:#1677ff;color:#fff}
+.btn-primary:hover{background:#4096ff}
+.btn-primary:disabled{background:#b0b8c4;cursor:not-allowed}
+.btn-sm{padding:4px 12px;font-size:12px}
+.btn-outline{background:#fff;color:#1677ff;border:1px solid #1677ff}
+.btn-outline:hover{background:#f0f5ff}
+.result-step{margin-bottom:16px;padding-bottom:16px;border-bottom:1px solid #f0f0f0}
+.result-step:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.step-label{font-size:12px;color:#888;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+.step-label .tag{padding:2px 8px;border-radius:4px;font-size:11px;font-weight:500}
+.tag-p0{background:#fff1f0;color:#cf1322}
+.tag-p1{background:#fff7e6;color:#d46b08}
+.tag-p2{background:#f6ffed;color:#389e0d}
+.tag-block{background:#fff1f0;color:#cf1322}
+.step-content{font-size:13px;line-height:1.8}
+.reply-box{background:#f0f5ff;border:1px solid #adc6ff;border-radius:8px;padding:12px 16px;font-size:14px;line-height:1.8;position:relative}
+.reply-box .copy-btn{position:absolute;top:8px;right:8px}
+.tabs{display:flex;gap:0;margin-bottom:16px;background:#f0f0f0;border-radius:8px;padding:3px}
+.tab{padding:6px 16px;border:none;background:none;cursor:pointer;font-size:13px;border-radius:6px;color:#666}
+.tab.active{background:#fff;color:#1677ff;font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,0.06)}
+.hidden{display:none}
+.loading{display:inline-block;width:14px;height:14px;border:2px solid #1677ff;border-top-color:transparent;border-radius:50%;animation:spin .6s linear infinite;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error{color:#cf1322;background:#fff2f0;padding:10px 14px;border-radius:6px;font-size:13px}
+.success{color:#389e0d;background:#f6ffed;padding:10px 14px;border-radius:6px;font-size:13px}
+.api-url{font-size:11px;color:#999;margin-top:4px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🤖 售后智能助手</h1>
+  <span class="badge">AI</span>
+  <span style="font-size:12px;color:#888;margin-left:auto">千牛插件版 v0.1</span>
+</div>
+
+<div class="container">
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('workflow')">📋 一键处理</button>
+    <button class="tab" onclick="switchTab('manual')">🔧 分步调试</button>
+  </div>
+
+  <!-- ====== 一键处理面板 ====== -->
+  <div id="tab-workflow">
+
+    <!-- 输入区 -->
+    <div class="card">
+      <div class="card-title"><span class="icon">📝</span> 工单信息</div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label>用户原话</label>
+          <textarea id="wf-reason" placeholder="粘贴用户售后消息...">用了你们家那个油蜜面膜，第二天脸红了一片，还有点痒</textarea>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>商品</label><input id="wf-product" value="油蜜面膜"></div>
+        <div class="form-group"><label>SKU</label><input id="wf-sku" value="LP-006"></div>
+        <div class="form-group"><label>金额</label><input id="wf-amount" value="168" type="number"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>平台</label>
+          <select id="wf-platform"><option>淘宝</option><option>抖音</option><option>小红书</option><option>京东</option></select>
+        </div>
+        <div class="form-group"><label>购买日期</label><input id="wf-date" value="2026-05-30" type="date"></div>
+        <div class="form-group"><label>历史售后次数</label><input id="wf-history" value="0" type="number"></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>年消费额</label><input id="wf-yearly" value="3500" type="number"></div>
+        <div class="form-group"><label>批次号</label><input id="wf-batch" value="YM20260520"></div>
+        <div class="form-group"><label>图片数</label><input id="wf-images" value="0" type="number" min="0"></div>
+      </div>
+      <div style="margin-top:12px">
+        <button class="btn btn-primary" onclick="runWorkflow()" id="wf-btn">
+          🚀 一键分析
+        </button>
+        <span id="wf-status" style="margin-left:12px;font-size:13px;color:#888"></span>
+      </div>
+    </div>
+
+    <!-- 结果区 -->
+    <div id="wf-results" class="hidden">
+      <div class="card">
+        <div class="card-title"><span class="icon">📊</span> 处理结果</div>
+        <div id="wf-content"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====== 分步调试面板 ====== -->
+  <div id="tab-manual" class="hidden">
+    <div class="card">
+      <div class="card-title"><span class="icon">🔧</span> 手动调用接口</div>
+      <div class="form-row">
+        <div class="form-group"><label>接口</label>
+          <select id="ma-endpoint" onchange="updateManualUrl()">
+            <option value="triage">POST /api/v1/triage 分流</option>
+            <option value="allergy/assess">POST /api/v1/allergy/assess 过敏评估</option>
+            <option value="refund/decide">POST /api/v1/refund/decide 赔付决策</option>
+            <option value="reply/generate">POST /api/v1/reply/generate 生成回复</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>请求体 JSON</label>
+          <textarea id="ma-body" style="min-height:180px;font-family:monospace;font-size:12px"></textarea>
+        </div>
+      </div>
+      <div class="api-url" id="ma-url"></div>
+      <div style="margin-top:10px">
+        <button class="btn btn-primary" onclick="runManual()">发送请求</button>
+      </div>
+      <div id="ma-result" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API_BASE = 'http://localhost:8000/api/v1';
+
+// ====== Tab切换 ======
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="${tab}"]`).classList.add('active');
+  document.getElementById('tab-workflow').classList.toggle('hidden', tab !== 'workflow');
+  document.getElementById('tab-manual').classList.toggle('hidden', tab !== 'manual');
+  if (tab === 'manual') updateManualUrl();
+}
+
+// ====== 一键处理 ======
+async function runWorkflow() {
+  const btn = document.getElementById('wf-btn');
+  const status = document.getElementById('wf-status');
+  btn.disabled = true;
+  status.innerHTML = '<span class="loading"></span>分析中...';
+  document.getElementById('wf-results').classList.remove('hidden');
+  document.getElementById('wf-content').innerHTML = '';
+
+  const images = Array.from({length: parseInt(document.getElementById('wf-images').value) || 0},
+    (_,i) => `image_${i+1}.jpg`);
+
+  const ticket = {
+    ticket_id: 'QN' + Date.now(),
+    buyer_id: 'buyer_auto',
+    order_id: 'order_auto',
+    product_sku: document.getElementById('wf-sku').value,
+    product_name: document.getElementById('wf-product').value,
+    reason: document.getElementById('wf-reason').value,
+    images: images,
+    demand: '退货退款',
+    order_amount: parseFloat(document.getElementById('wf-amount').value),
+    purchase_date: document.getElementById('wf-date').value,
+    platform: document.getElementById('wf-platform').value,
+    historical_return_count: parseInt(document.getElementById('wf-history').value) || 0,
+    yearly_spend: parseFloat(document.getElementById('wf-yearly').value) || 0
+  };
+
+  let html = '';
+  let lastCategory = '', lastSeverity = '', lastSubCategory = '';
+
+  try {
+    // Step 1: 分流
+    let r = await fetch(`${API_BASE}/triage`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(ticket)
+    });
+    let d = await r.json();
+    lastCategory = d.category; lastSubCategory = d.sub_category;
+    let blockTag = d.requires_images ? '<span class="tag tag-block">🔒 需要上传凭证</span>' : '';
+    let priTag = d.priority === 'P0' ? 'tag-p0' : d.priority === 'P1' ? 'tag-p1' : 'tag-p2';
+    html += `<div class="result-step">
+      <div class="step-label">🔍 分流 <span class="tag ${priTag}">${d.priority}</span> ${blockTag}</div>
+      <div class="step-content">
+        <b>${d.category}</b> / ${d.sub_category} · 置信度 ${(d.confidence*100).toFixed(0)}% · SLA ${d.suggested_sla_minutes}分钟<br>
+        ${d.reasoning}
+      </div></div>`;
+    status.innerHTML = '已完成：分流 ✓';
+
+    // 如果无图需索要凭证
+    if (d.requires_images) {
+      let rr = await fetch(`${API_BASE}/reply/generate`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          ticket_id:ticket.ticket_id, category:d.category, sub_category:d.sub_category,
+          severity:'轻度', product_sku:ticket.product_sku, product_name:ticket.product_name,
+          buyer_message:ticket.reason, requires_images:true
+        })
+      });
+      let rd = await rr.json();
+      html += `<div class="result-step">
+        <div class="step-label">💬 索要凭证回复</div>
+        <div class="reply-box">
+          ${rd.reply_text}
+          <button class="btn btn-sm btn-outline copy-btn" onclick="copyText(this,'${rd.reply_text.replace(/'/g,"\\'")}')">📋 复制</button>
+        </div></div>`;
+      status.innerHTML = '⚠️ 需要用户上传凭证后继续';
+    } else {
+      // Step 2: 过敏评估（仅不良反应）
+      if (d.category.includes('不良反应')) {
+        r = await fetch(`${API_BASE}/allergy/assess`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            ticket_id:ticket.ticket_id, product_sku:ticket.product_sku,
+            reason:ticket.reason, images:ticket.images,
+            batch_number:document.getElementById('wf-batch').value
+          })
+        });
+        let a = await r.json();
+        lastSeverity = a.severity;
+        html += `<div class="result-step">
+          <div class="step-label">🩺 过敏评估 · ${a.severity}</div>
+          <div class="step-content">
+            症状：${a.symptoms_detected.join('、')} | 法务：${a.requires_legal_review?'需要':'不需要'} | 升级：${a.requires_escalation?'是':'否'}<br>
+            ${a.batch_alert?.should_alert ? '⚠️ 批次过敏率 '+ (a.batch_alert.allergy_rate_7d*100).toFixed(1) +'%，触发预警' : '✅ 批次正常'}
+          </div></div>`;
+        status.innerHTML = '已完成：分流 ✓ 过敏 ✓';
+      }
+
+      // Step 3: 赔付
+      r = await fetch(`${API_BASE}/refund/decide`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          ticket_id:ticket.ticket_id, category:d.category, severity:lastSeverity,
+          product_sku:ticket.product_sku, order_amount:ticket.order_amount,
+          purchase_date:ticket.purchase_date, buyer_id:ticket.buyer_id,
+          historical_return_count:ticket.historical_return_count, yearly_spend:ticket.yearly_spend
+        })
+      });
+      let ref = await r.json();
+      html += `<div class="result-step">
+        <div class="step-label">💰 赔付决策 · ${ref.requires_approval?'需审批':'自动执行'}</div>
+        <div class="step-content">
+          ${ref.refund_type} ¥${ref.refund_amount} + ${ref.compensation_type} ¥${ref.compensation_amount}<br>
+          券范围：${ref.compensation_scope || '无'} · 有效期：${ref.compensation_valid_days || 0}天<br>
+          <span style="color:#888;font-size:12px">${ref.reasoning}</span>
+        </div></div>`;
+      status.innerHTML = '已完成：分流 ✓ 赔付 ✓';
+
+      // Step 4: 回复
+      r = await fetch(`${API_BASE}/reply/generate`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          ticket_id:ticket.ticket_id, category:d.category, sub_category:d.sub_category,
+          severity:lastSeverity, product_sku:ticket.product_sku, product_name:ticket.product_name,
+          buyer_message:ticket.reason,
+          refund_decision:{
+            refund_type:ref.refund_type, refund_amount:ref.refund_amount,
+            compensation_type:ref.compensation_type, compensation_amount:ref.compensation_amount
+          }
+        })
+      });
+      let rep = await r.json();
+      html += `<div class="result-step">
+        <div class="step-label">💬 智能回复 · 情绪：${rep.sentiment_detected} · 合规：${rep.passed_hard_rules?'✅':'⚠️'}</div>
+        <div class="reply-box">
+          ${rep.reply_text}
+          <button class="btn btn-sm btn-outline copy-btn" onclick="copyText(this,'${rep.reply_text.replace(/'/g,"\\'").replace(/\n/g,'')}')">📋 复制</button>
+        </div></div>`;
+      status.innerHTML = '✅ 全部分析完成';
+    }
+  } catch(e) {
+    html += `<div class="error">❌ 请求失败：${e.message}<br>请确认服务已启动：python3 -m uvicorn src.main:app --port 8000</div>`;
+    status.innerHTML = '❌ 出错';
+  }
+
+  document.getElementById('wf-content').innerHTML = html;
+  btn.disabled = false;
+}
+
+function copyText(btn, text) {
+  const ta = document.createElement('textarea');
+  ta.value = text; document.body.appendChild(ta); ta.select();
+  document.execCommand('copy'); document.body.removeChild(ta);
+  btn.textContent = '✅ 已复制';
+  setTimeout(() => btn.textContent = '📋 复制', 1500);
+}
+
+// ====== 手动调试 ======
+function updateManualUrl() {
+  const ep = document.getElementById('ma-endpoint').value;
+  document.getElementById('ma-url').textContent = `${API_BASE}/${ep}`;
+  // 预填示例
+  const examples = {
+    'triage': '{"ticket_id":"T01","buyer_id":"U1","order_id":"O1","product_sku":"LP-006","product_name":"油蜜面膜","reason":"用了脸红","images":[],"demand":"退货退款","order_amount":168,"purchase_date":"2026-05-30","platform":"抖音","historical_return_count":0,"yearly_spend":3500}',
+    'allergy/assess': '{"ticket_id":"T01","product_sku":"LP-006","reason":"用了脸红","images":[],"batch_number":"YM01"}',
+    'refund/decide': '{"ticket_id":"T01","category":"不良反应","severity":"轻度","product_sku":"LP-006","order_amount":168,"purchase_date":"2026-05-30","buyer_id":"U1","historical_return_count":0,"yearly_spend":3500}',
+    'reply/generate': '{"ticket_id":"T01","category":"不良反应","sub_category":"泛红刺痛","severity":"轻度","product_sku":"LP-006","product_name":"油蜜面膜","buyer_message":"用了脸红","refund_decision":{"refund_type":"全额退款","refund_amount":168,"compensation_type":"优惠券","compensation_amount":30}}'
+  };
+  if (!document.getElementById('ma-body').value.trim()) {
+    document.getElementById('ma-body').value = examples[ep] || '';
+  }
+}
+
+async function runManual() {
+  const ep = document.getElementById('ma-endpoint').value;
+  const body = document.getElementById('ma-body').value;
+  const resultDiv = document.getElementById('ma-result');
+  resultDiv.innerHTML = '<span class="loading"></span>请求中...';
+  try {
+    const r = await fetch(`${API_BASE}/${ep}`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body
+    });
+    const d = await r.json();
+    resultDiv.innerHTML = `<div class="success">✅ HTTP ${r.status}</div>
+      <pre style="background:#f8f9fa;padding:12px;border-radius:6px;overflow-x:auto;font-size:12px;margin-top:8px">${JSON.stringify(d, null, 2)}</pre>`;
+  } catch(e) {
+    resultDiv.innerHTML = `<div class="error">❌ ${e.message}</div>`;
+  }
+}
+
+// 初始化
+document.getElementById('wf-date').value = new Date(Date.now() - 2*86400000).toISOString().split('T')[0];
+</script>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{
+  "name": "售后智能助手",
+  "version": "0.1.0",
+  "description": "AI驱动的美妆护肤电商售后处理插件，自动分流、过敏评估、赔付决策、智能回复",
+  "author": "售后智能团队",
+  "icon": "icon.png",
+  "entry": "index.html",
+  "permissions": [
+    "trade.order.read",
+    "trade.refund.read",
+    "trade.refund.write",
+    "chat.message.read",
+    "chat.message.send"
+  ],
+  "context": ["refund_detail", "chat_window"],
+  "settings": {
+    "api_base_url": {
+      "label": "API服务地址",
+      "type": "string",
+      "default": "http://localhost:8000/api/v1",
+      "required": true
+    }
+  }
+}
