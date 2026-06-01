@@ -5,8 +5,9 @@ from src.core.config import Settings
 @pytest.fixture
 def test_settings():
     return Settings(
-        anthropic_api_key="test-key",
-        model_id="claude-sonnet-4-6",
+        api_key="test-key",
+        model_id="deepseek-chat",
+        base_url="https://api.deepseek.com",
         database_path=":memory:",
         log_level="DEBUG",
     )

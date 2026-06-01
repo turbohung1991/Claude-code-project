@@ -65,6 +65,7 @@ async def triage_ticket(
         reasoning=result.reasoning,
         suggested_handler=result.suggested_handler,
         suggested_sla_minutes=result.suggested_sla_minutes,
+        requires_images=result.requires_images,
     )
 
 
@@ -160,6 +161,7 @@ async def generate_reply(
         product_name=request.product_name,
         buyer_message=request.buyer_message,
         refund_decision=request.refund_decision,
+        requires_images=request.requires_images,
     )
 
     return ReplyResponse(

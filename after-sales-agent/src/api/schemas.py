@@ -28,6 +28,7 @@ class TriageResponse(BaseModel):
     reasoning: str
     suggested_handler: str
     suggested_sla_minutes: int
+    requires_images: bool = False
 
 
 class AllergyRequest(BaseModel):
@@ -82,6 +83,7 @@ class ReplyRequest(BaseModel):
     product_name: str
     buyer_message: str
     refund_decision: Optional[dict] = None
+    requires_images: bool = False
 
 
 class ReplyResponse(BaseModel):

@@ -22,7 +22,26 @@ class ReplyGenerator:
         product_name: str,
         buyer_message: str,
         refund_decision: Optional[dict] = None,
+        requires_images: bool = False,
     ) -> dict:
+        # 不良反应无凭证 → 先索要图片，不进入赔付回复
+        if requires_images and "不良反应" in category:
+            template = self.templates.get("不良反应-需要凭证")
+            context = f"工单号：{ticket_id}\n产品：{product_name}\n用户消息：{buyer_message}"
+            raw_reply = self.llm.complete(
+                system_prompt=REPLY_GENERATION_PROMPT,
+                user_message=f"模板：{template['骨架']}\n上下文：{context}\n请在模板骨架内填充，自然且有温度。",
+                temperature=0.3,
+                max_tokens=512,
+            )
+            return {
+                "ticket_id": ticket_id,
+                "reply_text": raw_reply.strip(),
+                "sentiment_detected": "未检测",
+                "quality_flags": [],
+                "passed_hard_rules": True,
+            }
+
         sentiment_result = self.sentiment.detect(buyer_message)
         tone = self.sentiment.get_tone_adjustment(sentiment_result["sentiment"])
 

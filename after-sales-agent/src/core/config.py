@@ -6,8 +6,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
-    anthropic_api_key: str
-    model_id: str = "claude-sonnet-4-6"
+    api_key: str
+    model_id: str = "deepseek-chat"
+    base_url: str = "https://api.deepseek.com"
     database_path: str = "data/after_sales.db"
     log_level: str = "INFO"
 

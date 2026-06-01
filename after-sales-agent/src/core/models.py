@@ -66,13 +66,14 @@ class TicketInput(BaseModel):
 
 class TriageResult(BaseModel):
     ticket_id: str
-    category: Category
-    sub_category: SubCategory
+    category: str
+    sub_category: str
     priority: Priority
     confidence: float
     reasoning: str
     suggested_handler: str
     suggested_sla_minutes: int
+    requires_images: bool = False
 
 
 class AllergyRiskResult(BaseModel):

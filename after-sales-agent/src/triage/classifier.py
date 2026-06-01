@@ -24,6 +24,12 @@ class TriageClassifier:
         data["ticket_id"] = ticket.ticket_id
         result = TriageResult(**data)
 
+        # 硬规则：不良反应类 + 无图 → 强制要求上传凭证（不信任 LLM 判断）
+        if "不良反应" in result.category:
+            result.requires_images = not ticket.images
+            if result.requires_images:
+                result.reasoning += "（无实拍图/视频，已标记需上传凭证）"
+
         if result.confidence < self.settings.triage_confidence_threshold:
             raise TriageConfidenceTooLow(
                 f"分类置信度 {result.confidence} 低于阈值 {self.settings.triage_confidence_threshold}"
@@ -39,6 +45,8 @@ class TriageClassifier:
         return result
 
     def _format_ticket(self, ticket: TicketInput) -> str:
+        image_count = len(ticket.images)
+        image_info = f"已上传 {image_count} 张图片" if image_count > 0 else "未上传图片/视频"
         return f"""请分类以下售后工单：
 
 买家ID：{ticket.buyer_id}
@@ -49,4 +57,5 @@ class TriageClassifier:
 金额：{ticket.order_amount}元
 购买日期：{ticket.purchase_date}
 历史售后次数：{ticket.historical_return_count}
-平台：{ticket.platform}"""
+平台：{ticket.platform}
+图片凭证：{image_info}"""
