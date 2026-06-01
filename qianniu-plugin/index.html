@@ -56,7 +56,7 @@ body{font:14px/1.6 -apple-system,BlinkMacSystemFont,sans-serif;background:#f5f6f
 <div class="header">
   <h1>🤖 售后智能助手</h1>
   <span class="badge">AI</span>
-  <span style="font-size:12px;color:#888;margin-left:auto">千牛插件版 v0.1</span>
+  <span id="qn-status" style="font-size:12px;color:#999;margin-left:auto">⚪ 检测中...</span>
 </div>
 
 <div class="container">
@@ -217,7 +217,7 @@ async function runWorkflow() {
         <div class="step-label">💬 索要凭证回复</div>
         <div class="reply-box">
           <div class="reply-text">${rd.reply_text}</div>
-          <button class="btn btn-sm btn-outline copy-btn" onclick="copyText(this,\`${rd.reply_text.replace(/`/g,'\\`')}\`)">📋 复制</button>
+          <button class="btn btn-sm btn-outline copy-btn" onclick="QN_BRIDGE.sendReply(\`${rd.reply_text.replace(/`/g,'\\`')}\`)">📤 发送到聊天</button>
         </div></div>`;
       status.innerHTML = '⚠️ 需要用户上传凭证后继续';
     } else {
@@ -280,7 +280,7 @@ async function runWorkflow() {
         <div class="step-label">💬 智能回复 · 情绪：${rep.sentiment_detected} · 合规：${rep.passed_hard_rules?'✅':'⚠️'}</div>
         <div class="reply-box">
           <div class="reply-text">${rep.reply_text}</div>
-          <button class="btn btn-sm btn-outline copy-btn" onclick="copyText(this,\`${rep.reply_text.replace(/`/g,'\\`')}\`)">📋 复制</button>
+          <button class="btn btn-sm btn-outline copy-btn" onclick="QN_BRIDGE.sendReply(\`${rep.reply_text.replace(/`/g,'\\`')}\`)">📤 发送到聊天</button>
         </div></div>`;
       status.innerHTML = '✅ 全部分析完成';
     }
@@ -336,6 +336,118 @@ async function runManual() {
 
 // 初始化
 document.getElementById('wf-date').value = new Date(Date.now() - 2*86400000).toISOString().split('T')[0];
+
+// ====== 千牛 Bridge 集成 ======
+const QN_BRIDGE = {
+  available: false,
+  env: 'browser', // 'browser' | 'qianniu'
+
+  init() {
+    // 检测是否在千牛环境
+    if (typeof window.QN !== 'undefined') {
+      this.available = true;
+      this.env = 'qianniu';
+      this._updateStatus('🟢 千牛已连接', '#52c41a');
+      this._autoFillFromContext();
+    } else {
+      this._updateStatus('⚪ 独立模式（非千牛环境）', '#999');
+    }
+  },
+
+  _updateStatus(text, color) {
+    const el = document.getElementById('qn-status');
+    if (el) { el.textContent = text; el.style.color = color; }
+  },
+
+  async _autoFillFromContext() {
+    try {
+      // 1. 获取当前聊天消息
+      if (window.QN.chat && window.QN.chat.getCurrentMessage) {
+        window.QN.chat.getCurrentMessage((msg) => {
+          if (msg && msg.content) {
+            document.getElementById('wf-reason').value = msg.content;
+          }
+        });
+      }
+
+      // 2. 获取当前退款单详情
+      if (window.QN.refund && window.QN.refund.getCurrentDetail) {
+        window.QN.refund.getCurrentDetail((refund) => {
+          if (refund) {
+            document.getElementById('wf-product').value = refund.itemTitle || '';
+            document.getElementById('wf-sku').value = refund.outerSkuId || '';
+            document.getElementById('wf-amount').value = refund.amount || '';
+            document.getElementById('wf-platform').value = '淘宝';
+            if (refund.created) {
+              document.getElementById('wf-date').value = refund.created.split(' ')[0];
+            }
+            // 买家信息
+            if (refund.buyerNick) {
+              document.getElementById('wf-reason').dataset.buyerNick = refund.buyerNick;
+            }
+          }
+        });
+      }
+
+      // 3. 获取买家历史退款次数
+      if (window.QN.trade && window.QN.trade.getBuyerRefundCount) {
+        window.QN.trade.getBuyerRefundCount((result) => {
+          if (result && result.count !== undefined) {
+            document.getElementById('wf-history').value = result.count;
+          }
+        });
+      }
+    } catch (e) {
+      console.log('千牛自动填充失败，可手动输入:', e.message);
+    }
+  },
+
+  // 一键发送回复到千牛聊天窗口
+  sendReply(text) {
+    if (!this.available) {
+      this._copyFallback(text);
+      return;
+    }
+    try {
+      window.QN.chat.sendMessage({ content: text }, (res) => {
+        if (res && res.success) {
+          this._showToast('✅ 已发送到聊天窗口');
+        } else {
+          this._copyFallback(text);
+        }
+      });
+    } catch (e) {
+      this._copyFallback(text);
+    }
+  },
+
+  _copyFallback(text) {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); document.body.removeChild(ta);
+    this._showToast('📋 已复制（非千牛环境下无法自动发送）');
+  },
+
+  _showToast(msg) {
+    let toast = document.getElementById('toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'toast';
+      toast.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 20px;border-radius:20px;font-size:13px;z-index:9999;transition:opacity 0.3s;';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.style.opacity = '1';
+    clearTimeout(toast._timer);
+    toast._timer = setTimeout(() => { toast.style.opacity = '0'; }, 2000);
+  }
+};
+
+// 页面加载时初始化千牛连接
+document.addEventListener('DOMContentLoaded', () => QN_BRIDGE.init());
+
+// 暴露到全局
+window.QN_BRIDGE = QN_BRIDGE;
 </script>
 </body>
 </html>
