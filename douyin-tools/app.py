@@ -269,6 +269,7 @@ def process_video():
                     "quality": selected["label"],
                     "url": download_url,
                 })
+                _save_video_meta(filename, video_data)
 
             except Exception as e:
                 push_event(task_id, "error", {"message": f"下载失败: {str(e)}"})
@@ -361,15 +362,30 @@ def serve_video(filename):
 @app.route("/api/videos")
 def list_videos():
     videos = []
-    for f in sorted(os.listdir(DOWNLOAD_DIR), reverse=True):
+    for f in os.listdir(DOWNLOAD_DIR):
         if f.endswith(".mp4"):
             path = os.path.join(DOWNLOAD_DIR, f)
+            meta_path = os.path.join(DOWNLOAD_DIR, f + "_meta.json")
+            meta = {}
+            if os.path.exists(meta_path):
+                try:
+                    with open(meta_path, encoding="utf-8") as mf:
+                        meta = json.load(mf)
+                except Exception:
+                    pass
+            ts = meta.get("created_at") or int(os.path.getmtime(path))
             videos.append({
                 "filename": f,
                 "size": os.path.getsize(path),
                 "size_display": f"{os.path.getsize(path)/1024/1024:.1f}MB",
                 "url": f"/api/download/{quote(f, safe='')}",
+                "author": meta.get("author", ""),
+                "desc": meta.get("desc", ""),
+                "duration": meta.get("duration", 0),
+                "created_at": meta.get("created_at", 0),
+                "_sort_ts": ts,
             })
+    videos.sort(key=lambda v: v["_sort_ts"], reverse=True)
     return jsonify({"videos": videos})
 
 
@@ -399,7 +415,7 @@ def delete_analysis(filename):
 @app.route("/api/analyses")
 def list_analyses():
     analyses = []
-    for f in sorted(os.listdir(DOWNLOAD_DIR), reverse=True):
+    for f in os.listdir(DOWNLOAD_DIR):
         if f.endswith("_analysis.json"):
             path = os.path.join(DOWNLOAD_DIR, f)
             try:
@@ -407,6 +423,7 @@ def list_analyses():
                     data = json.load(fp)
             except Exception:
                 data = {}
+            ts = data.get("created_at") or int(os.path.getmtime(path))
             analyses.append({
                 "file": f,
                 "filename": data.get("filename", f.replace("_analysis.json", "")),
@@ -417,7 +434,9 @@ def list_analyses():
                 "created_at": data.get("created_at", 0),
                 "preview": data.get("analysis", "")[:200],
                 "video_url": f"/api/download/{quote(f.replace('_analysis.json', '.mp4'), safe='')}",
+                "_sort_ts": ts,
             })
+    analyses.sort(key=lambda a: a["_sort_ts"], reverse=True)
     return jsonify({"analyses": analyses})
 
 
@@ -444,6 +463,20 @@ def _save_analysis(filename, video_data, analysis):
     }
     with open(report_path, "w", encoding="utf-8") as f:
         json.dump(report, f, ensure_ascii=False, indent=2)
+
+
+def _save_video_meta(filename, video_data):
+    """Save video metadata alongside the downloaded MP4 file."""
+    meta_path = os.path.join(DOWNLOAD_DIR, filename + ".mp4_meta.json")
+    meta = {
+        "filename": filename,
+        "desc": (video_data.get("desc") or "").strip()[:200] or filename[:60],
+        "author": (video_data.get("author") or {}).get("nickname", "未知"),
+        "duration": (video_data.get("duration", 0) or 0) // 1000,
+        "created_at": int(time.time()),
+    }
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump(meta, f, ensure_ascii=False, indent=2)
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -632,6 +665,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
 """
 
 
+def _sanitize_filename(name):
+    """Remove chars invalid in HTTP Content-Disposition header."""
+    import re
+    return re.sub(r'[\n\r\\/:*?"<>|]', '_', name)[:100]
+
 @app.route("/api/export/pdf", methods=["POST"])
 def export_pdf():
     body_html = request.json.get("html", "")
@@ -640,6 +678,7 @@ def export_pdf():
         return jsonify({"error": "内容为空"}), 400
 
     html = _build_export_html(body_html, title)
+    safe_title = _sanitize_filename(title)
 
     try:
         from playwright.sync_api import sync_playwright
@@ -648,7 +687,6 @@ def export_pdf():
             page = browser.new_page(viewport={"width": 900, "height": 800})
             page.set_content(html, wait_until="networkidle", timeout=15000)
             page.wait_for_timeout(500)
-            # Ensure full content is laid out before PDF
             page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
             page.wait_for_timeout(200)
             pdf_bytes = page.pdf(
@@ -660,7 +698,7 @@ def export_pdf():
         import io
         return send_file(
             io.BytesIO(pdf_bytes), mimetype="application/pdf",
-            as_attachment=True, download_name=f"{title}.pdf"
+            as_attachment=True, download_name=f"{safe_title}.pdf"
         )
     except Exception as e:
         return jsonify({"error": f"PDF 生成失败: {str(e)}"}), 500
@@ -674,6 +712,7 @@ def export_image():
         return jsonify({"error": "内容为空"}), 400
 
     html = _build_export_html(body_html, title)
+    safe_title = _sanitize_filename(title)
 
     try:
         from playwright.sync_api import sync_playwright
@@ -682,7 +721,6 @@ def export_image():
             page = browser.new_page(viewport={"width": 900, "height": 800})
             page.set_content(html, wait_until="networkidle", timeout=15000)
             page.wait_for_timeout(500)
-            # Capture true full height
             height = page.evaluate("document.body.scrollHeight")
             page.set_viewport_size({"width": 900, "height": max(height + 60, 800)})
             page.wait_for_timeout(200)
@@ -692,13 +730,22 @@ def export_image():
         import io
         return send_file(
             io.BytesIO(png_bytes), mimetype="image/png",
-            as_attachment=True, download_name=f"{title}.png"
+            as_attachment=True, download_name=f"{safe_title}.png"
         )
     except Exception as e:
         return jsonify({"error": f"图片生成失败: {str(e)}"}), 500
 
 
+def _sanitize_export_html(html):
+    """Remove scroll/clip styles that would truncate exported content."""
+    import re
+    html = re.sub(r'max-height:\s*[^;"]+;?', '', html, flags=re.IGNORECASE)
+    html = re.sub(r'overflow(-[xy])?:\s*[^;"]+;?', '', html, flags=re.IGNORECASE)
+    return html
+
+
 def _build_export_html(body_html, title):
+    body_html = _sanitize_export_html(body_html)
     return f"""<!DOCTYPE html><html><head><meta charset='UTF-8'><title>{title}</title>
 <style>{EXPORT_STYLE}</style></head><body>{body_html}</body></html>"""
 

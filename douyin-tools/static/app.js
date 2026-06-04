@@ -350,7 +350,7 @@ async function showVideoReady(data) {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(blobUrl);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
         $('#progressMsg').textContent = '文件已下载到本地！';
     } catch (e) {
         if (e.name === 'AbortError') {
@@ -413,8 +413,11 @@ async function doExport(format) {
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = title + ext; a.click();
-        URL.revokeObjectURL(url);
+        a.href = url; a.download = title + ext;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch(e) { showToast('导出失败: ' + e.message); }
 }
 
@@ -447,8 +450,11 @@ async function exportHistoryRaw(format) {
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = title + ext; a.click();
-        URL.revokeObjectURL(url);
+        a.href = url; a.download = title + ext;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch(e) { showToast('导出失败: ' + e.message); }
 }
 
@@ -482,13 +488,13 @@ async function runStrategyAnalysis() {
     }
 
     const loading = $('#strategyLoading');
-    const content = $('#strategyContent');
+    const container = $('#strategyContent');
     const btn = $('#btnRunStrategy');
 
     btn.disabled = true;
     btn.textContent = '...';
     loading.classList.remove('hidden');
-    content.innerHTML = '';
+    container.innerHTML = '';
 
     try {
         const resp = await fetch('/api/process', {
@@ -511,18 +517,16 @@ async function runStrategyAnalysis() {
             const d = JSON.parse(e.data);
             loading.classList.add('hidden');
             if (d.error) {
-                content.innerHTML = '<p style="color:var(--danger);">' + (d.analysis || '分析失败') + '</p>';
-                showAIReady(d);
+                container.innerHTML = '<p style="color:var(--danger);">' + (d.analysis || '分析失败') + '</p>';
             } else {
                 const html = renderAIReport(d.analysis);
                 const rawText = d.analysis || '';
-                content.innerHTML = (html || simpleMarkdown(rawText)) + `
+                container.innerHTML = `<div id="strategyReport">${html || simpleMarkdown(rawText)}</div>
                 <div style="margin-top:16px;padding-top:14px;border-top:1px solid #2a2a3a;display:flex;gap:10px;">
                     <button class="btn btn-sm" onclick="exportStrategyReport('pdf')">🖨️ 导出 PDF</button>
                     <button class="btn btn-sm" onclick="exportStrategyReport('img')">🖼️ 导出图片</button>
                 </div>`;
-                content.querySelector('.markdown-body')?.style?.setProperty('max-height','none');
-                showAIReady(d);
+                container.querySelector('.markdown-body')?.style?.setProperty('max-height','none');
             }
             es.close();
             finishStrategy();
@@ -552,16 +556,34 @@ async function runStrategyAnalysis() {
     }
 }
 
+function buildVideoInfoHTML() {
+    if (!videoData || !videoData.info) return '';
+    const info = videoData.info;
+    const cover = info.cover || '';
+    const stats = info.stats || {};
+    return `
+    <div style="display:flex;gap:16px;margin-bottom:20px;padding:16px;background:#111119;border-radius:12px;border:1px solid #2a2a3a;">
+        ${cover ? `<img src="${cover}" style="width:120px;height:160px;border-radius:8px;object-fit:cover;flex-shrink:0;">` : ''}
+        <div style="min-width:0;">
+            <h2 style="margin:0 0 8px;font-size:1rem;line-height:1.5;">${escHTML(info.desc || '无标题')}</h2>
+            <p style="margin:0 0 4px;font-size:0.85rem;color:#888;">👤 ${escHTML(info.author || '未知')} · ⏱ ${info.duration || 0}秒</p>
+            <p style="margin:0;font-size:0.82rem;color:#666;">❤️ ${stats.digg || 0} · 💬 ${stats.comment || 0} · 🔄 ${stats.share || 0}</p>
+        </div>
+    </div>`;
+}
+
 function exportStrategyReport(format) {
-    const el = $('#strategyContent');
-    let html = el?.innerHTML || '';
+    const report = $('#strategyReport');
+    let html = report?.innerHTML || '';
     if (!html || html.length < 50) { showToast('没有可导出内容'); return; }
+    html = buildVideoInfoHTML() + html;
     const base = (videoData?.info?.desc || '分析报告').substring(0, 25);
     const title = '策略分析_' + base;
     doExportRaw(format, html, title);
 }
 
 async function doExportRaw(format, html, title) {
+    html = stripScrollStyles(html);
     const endpoint = format === 'pdf' ? '/api/export/pdf' : '/api/export/image';
     const ext = format === 'pdf' ? '.pdf' : '.png';
     try {
@@ -574,8 +596,11 @@ async function doExportRaw(format, html, title) {
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
-        a.href = url; a.download = title + ext; a.click();
-        URL.revokeObjectURL(url);
+        a.href = url; a.download = title + ext;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
     } catch(e) { showToast('导出失败: ' + e.message); }
 }
 
@@ -711,7 +736,7 @@ function renderCommentOnMain(data) {
     result.innerHTML = `
         <div class="comment-panel" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--card-border);">
             <h4 style="font-size:0.95rem;color:var(--text);margin-bottom:14px;">💬 评论分析 <span style="color:var(--text-dim);font-weight:400;">(${totalFetched}条)</span></h4>
-            ${sHtml}${cloudHtml}${sumHtml}
+            <div id="commentReport">${sHtml}${cloudHtml}${sumHtml}</div>
             <div style="margin-top:16px;padding-top:14px;border-top:1px solid #2a2a3a;display:flex;gap:10px;flex-wrap:wrap;">
                 <button class="btn btn-sm" onclick="exportMainComment('pdf')">🖨 导出 PDF</button>
                 <button class="btn btn-sm" onclick="exportMainComment('img')">🖼 导出图片</button>
@@ -722,10 +747,13 @@ function renderCommentOnMain(data) {
 }
 
 function exportMainComment(format) {
-    const content = $('#commentResult').innerHTML;
+    const report = $('#commentReport');
+    let html = report?.innerHTML || '';
+    if (!html || html.length < 50) { showToast('没有可导出内容'); return; }
+    html = buildVideoInfoHTML() + html;
     const base = (videoData?.info?.desc || '评论分析').substring(0, 25);
     const title = '评论分析_' + base;
-    doExportRaw(format, content, title);
+    doExportRaw(format, html, title);
 }
 
 async function downloadMainCommentCSV() {
@@ -742,7 +770,7 @@ async function downloadMainCommentCSV() {
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-        URL.revokeObjectURL(url);
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
         showToast('评论数据已导出');
     } catch (e) {
         showToast('导出评论数据失败: ' + e.message);
@@ -783,15 +811,22 @@ async function loadHistoryDownloads() {
         if (data.videos.length === 0) {
             list.innerHTML = '<p style="color:var(--text-dim);padding:24px;text-align:center;">暂无下载记录</p>';
         } else {
-            list.innerHTML = data.videos.map(v => `
+            list.innerHTML = data.videos.map(v => {
+                const dt = v.created_at ? new Date(v.created_at * 1000).toLocaleDateString('zh-CN') : '';
+                const info = [v.author || '', dt, v.duration ? v.duration + '秒' : ''].filter(s => s).join(' · ');
+                console.log('video meta:', v.filename.substring(0,30), {author: v.author, dt, duration: v.duration, info});
+                return `
                 <div class="history-item">
-                    <span class="h-name" title="${v.filename}">${v.filename}</span>
-                    <span class="h-size">${v.size_display}</span>
+                    <div style="flex:1;min-width:0;">
+                        <div class="h-name" title="${v.desc || v.filename}">${v.desc || v.filename}</div>
+                        <div style="font-size:0.78rem;color:var(--text-dim);">${info || v.filename}</div>
+                    </div>
+                    <span class="h-size" style="font-size:0.78rem;">${v.size_display}</span>
                     <a href="${v.url}" download class="btn btn-sm">💾</a>
                     <button class="btn btn-sm" onclick="playVideo('${v.url}')">▶</button>
                     <button class="btn btn-sm" onclick="deleteVideo('${v.filename}', this)" style="color:#ff6b6b;">✕</button>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         }
     } catch {
         showToast('获取下载记录失败');

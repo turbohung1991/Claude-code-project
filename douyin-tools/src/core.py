@@ -13,13 +13,16 @@ from playwright.async_api import async_playwright
 # ============================================================
 # 正则模式 — 覆盖所有已知抖音链接格式
 # ============================================================
-SHORT_PATTERN = re.compile(r'v\.douyin\.com/([a-zA-Z0-9]+)/?')
-LONG_PATTERN = re.compile(r'douyin\.com/video/(\d+)')
-NOTE_PATTERN = re.compile(r'douyin\.com/note/(\d+)')
-USER_VIDEO_PATTERN = re.compile(r'douyin\.com/user/.*?video/(\d+)')
-USER_MODAL_PATTERN = re.compile(r'douyin\.com/user/\S*\?.*modal_id=(\d+)')
-SHARE_PATTERN = re.compile(r'douyin\.com/share/video/(\d+)')
-IES_SHARE_PATTERN = re.compile(r'iesdouyin\.com/share/video/(\d+)')
+SHORT_PATTERN = re.compile(r'v\.douyin\.com/([A-Za-z0-9_\-]+)/?')
+LONG_PATTERN = re.compile(r'(?:www\.)?douyin\.com/video/(\d+)')
+NOTE_PATTERN = re.compile(r'(?:www\.)?douyin\.com/note/(\d+)')
+USER_VIDEO_PATTERN = re.compile(r'(?:www\.)?douyin\.com/user/\S*?video/(\d+)')
+USER_MODAL_PATTERN = re.compile(r'(?:www\.)?douyin\.com/user/\S*\?.*modal_id=(\d+)')
+SHARE_PATTERN = re.compile(r'(?:www\.)?douyin\.com/share/video/(\d+)')
+IES_SHARE_PATTERN = re.compile(r'(?:www\.)?iesdouyin\.com/share/video/(\d+)')
+SEARCH_MODAL_PATTERN = re.compile(r'douyin\.com/search/\S*\?.*modal_id=(\d+)')
+DISCOVER_MODAL_PATTERN = re.compile(r'douyin\.com/discover\?.*modal_id=(\d+)')
+FOLLOW_PATTERN = re.compile(r'douyin\.com/follow\?.*modal_id=(\d+)')
 RAW_VIDEO_ID_PATTERN = re.compile(r'^(\d{15,20})$')
 RENDER_DATA_PATTERN = re.compile(
     r'<script\s+id="RENDER_DATA"\s+type="application/json">(.*?)</script>',
@@ -34,6 +37,9 @@ ALL_ID_PATTERNS: List[Tuple[str, re.Pattern]] = [
     ('share', SHARE_PATTERN),
     ('user_video', USER_VIDEO_PATTERN),
     ('user_modal', USER_MODAL_PATTERN),
+    ('search_modal', SEARCH_MODAL_PATTERN),
+    ('discover_modal', DISCOVER_MODAL_PATTERN),
+    ('follow_modal', FOLLOW_PATTERN),
 ]
 
 # 链接类型中文提示
@@ -45,18 +51,28 @@ LINK_TYPE_LABELS = {
     'ies_share': '企业号分享链接',
     'user_video': '用户主页视频',
     'user_modal': '用户主页弹窗',
+    'search_modal': '搜索结果弹窗',
+    'discover_modal': '发现页弹窗',
+    'follow_modal': '关注页弹窗',
     'modal_page': '精选/发现页（modal_id）',
     'raw_id': '裸视频ID',
     'unknown': '无法识别的格式',
 }
 
 # 查询参数中可能包含视频ID的key
-VIDEO_ID_QUERY_KEYS = ['video_id', 'aweme_id', 'item_id', 'modal_id']
+VIDEO_ID_QUERY_KEYS = ['video_id', 'aweme_id', 'item_id', 'modal_id', 'id']
 
-# 从混合文本中提取抖音URL（如: "8.88 复制打开抖音 https://v.douyin.com/xxx/ ..."）
+# 从混合文本中提取抖音URL
+# 匹配带或不带 http 前缀的douyin链接，含路径中的特殊字符
 DOUYIN_URL_IN_TEXT = re.compile(
-    r'(https?://(?:v\.|www\.)?(?:ies)?douyin\.com/[A-Za-z0-9/?=&_\-\.%~]+)'
+    r'(?:https?://)?(?:v\.|www\.)?(?:ies)?douyin\.com/[A-Za-z0-9/?=&_\-\.%~@!#]+'
 )
+# 纯文本提取（不用 http 前缀）
+DOUYIN_URL_BARE = re.compile(
+    r'((?:v\.|www\.)?(?:ies)?douyin\.com/[A-Za-z0-9/?=&_\-\.%~@!#]+)'
+)
+# 检测是否包含抖音域名（用于兜底验证）
+DOUYIN_DOMAIN = re.compile(r'(?:v\.|www\.)?(?:ies)?douyin\.com')
 
 
 class DouyinParser:
@@ -131,6 +147,11 @@ class DouyinParser:
                 return url
             return None
 
+        # 处理裸域名（v.douyin.com/xxx 无协议前缀）
+        if text.startswith('v.douyin.com/') or text.startswith('douyin.com/') or text.startswith('www.douyin.com/'):
+            url = 'https://' + text.split()[0].rstrip('.,;:!?。，；：！？)')
+            return url
+
         # 从文本中提取抖音 URL
         urls = DOUYIN_URL_IN_TEXT.findall(text)
         if not urls:
@@ -159,8 +180,8 @@ class DouyinParser:
         """
         url = url.strip()
 
-        # 如果输入是混合文本（非纯URL），先提取URL
-        if not url.startswith('http'):
+        # 从混合文本中提取URL（处理从App复制的分享文案）
+        if not url.startswith('http') and not url.startswith('v.douyin'):
             extracted = cls.extract_douyin_url(url)
             if extracted:
                 url = extracted
@@ -177,6 +198,9 @@ class DouyinParser:
 
         # 查询参数兜底（jingxuan / discover / search 等）
         try:
+            # 确保有 scheme 才能 urlparse
+            if '://' not in url:
+                url = 'https://' + url
             parsed = urlparse(url)
             params = parse_qs(parsed.query)
             for key in VIDEO_ID_QUERY_KEYS:
@@ -184,6 +208,12 @@ class DouyinParser:
                     return 'modal_page'
         except Exception:
             pass
+
+        # 最后尝试：是否包含抖音域名（可能是未知的新链接格式，但仍可尝试解析）
+        if DOUYIN_DOMAIN.search(url):
+            url = url if '://' in url else 'https://' + url
+            # 尝试跟随看看能不能得到video_id
+            return 'short'  # 当作短链接处理，尝试跟随重定向
 
         return 'unknown'
 
@@ -253,10 +283,14 @@ class DouyinParser:
         url = url.strip()
 
         # 如果不是纯URL/纯ID → 从混合文本中提取抖音链接
-        if not url.startswith('http') and not RAW_VIDEO_ID_PATTERN.match(url):
+        if not url.startswith('http') and not url.startswith('v.douyin') and not RAW_VIDEO_ID_PATTERN.match(url):
             extracted = cls.extract_douyin_url(url)
             if extracted:
                 url = extracted
+
+        # 确保有 scheme（裸域名补 https://）
+        if DOUYIN_DOMAIN.search(url) and '://' not in url:
+            url = 'https://' + url
 
         link_type = cls.detect_link_type(url)
 
@@ -270,7 +304,7 @@ class DouyinParser:
 
     @classmethod
     async def _resolve_short_link(cls, url: str) -> Optional[str]:
-        """Playwright 跟随短链重定向，提取 video_id"""
+        """Playwright 跟随短链重定向，提取 video_id。兜底：从页面 RENDER_DATA 提取。"""
         pw, browser = await cls._launch_browser()
         try:
             context = await browser.new_context(
@@ -295,10 +329,20 @@ class DouyinParser:
                         if match:
                             video_id = match.group(1)
                             return
+                    # 也检查查询参数
+                    try:
+                        from urllib.parse import urlparse as up, parse_qs as pq
+                        params = pq(up(final_url).query)
+                        for key in VIDEO_ID_QUERY_KEYS:
+                            if key in params and params[key][0].isdigit():
+                                video_id = params[key][0]
+                                return
+                    except Exception:
+                        pass
 
             page.on('response', on_response)
-            await page.goto(url, wait_until='domcontentloaded', timeout=15000)
-            await page.wait_for_timeout(2000)
+            await page.goto(url, wait_until='domcontentloaded', timeout=20000)
+            await page.wait_for_timeout(3000)
 
             # 如果响应拦截没拿到，尝试从最终 URL 提取
             if not video_id:
@@ -308,6 +352,29 @@ class DouyinParser:
                     if match:
                         video_id = match.group(1)
                         break
+                # 尝试从查询参数提取
+                if not video_id:
+                    try:
+                        from urllib.parse import urlparse as up, parse_qs as pq
+                        params = pq(up(final_url).query)
+                        for key in VIDEO_ID_QUERY_KEYS:
+                            if key in params and params[key][0].isdigit():
+                                video_id = params[key][0]
+                                break
+                    except Exception:
+                        pass
+
+            # 兜底：从页面 RENDER_DATA 提取
+            if not video_id:
+                try:
+                    content = await page.content()
+                    match = RENDER_DATA_PATTERN.search(content)
+                    if match:
+                        import json
+                        data = json.loads(match.group(1))
+                        video_id = cls._extract_id_from_render_data(data)
+                except Exception:
+                    pass
 
             await context.close()
         finally:
@@ -315,6 +382,25 @@ class DouyinParser:
             await pw.stop()
 
         return video_id
+
+    @classmethod
+    def _extract_id_from_render_data(cls, data: dict) -> Optional[str]:
+        """从 RENDER_DATA JSON 中递归提取 aweme_id / video_id。"""
+        if isinstance(data, dict):
+            for key in ('aweme_id', 'video_id', 'item_id', 'modal_id'):
+                val = data.get(key)
+                if val and isinstance(val, (int, str)) and str(val).isdigit():
+                    return str(val)
+            for v in data.values():
+                result = cls._extract_id_from_render_data(v)
+                if result:
+                    return result
+        elif isinstance(data, list):
+            for item in data:
+                result = cls._extract_id_from_render_data(item)
+                if result:
+                    return result
+        return None
 
     # 旧接口兼容
     resolve_short_link = _resolve_short_link
