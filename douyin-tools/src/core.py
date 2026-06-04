@@ -117,10 +117,17 @@ class DouyinParser:
             ),
             viewport={'width': 1440, 'height': 900},
             locale='zh-CN',
+            extra_http_headers={
+                'Accept-Language': 'zh-CN,zh;q=0.9',
+            },
         )
-        await context.add_init_script(
-            '''Object.defineProperty(navigator, 'webdriver', {get: () => false});'''
-        )
+        # Hide automation traces
+        await context.add_init_script('''
+            Object.defineProperty(navigator, 'webdriver', {get: () => false});
+            Object.defineProperty(navigator, 'plugins', {get: () => [1,2,3,4,5]});
+            Object.defineProperty(navigator, 'languages', {get: () => ['zh-CN','zh','en']});
+            window.chrome = {runtime: {}};
+        ''')
         return context
 
     # ================================================================
@@ -456,16 +463,14 @@ class DouyinParser:
 
             page.on('response', on_response)
 
-            # 先访问首页建立 session
-            await page.goto(
-                'https://www.douyin.com/', wait_until='domcontentloaded', timeout=20000
-            )
-            await page.wait_for_timeout(2000)
-
-            # 访问视频页面
+            # 直接访问视频页面（跳过首页，减少被拦截概率）
             video_url = f'https://www.douyin.com/video/{video_id}'
-            await page.goto(video_url, wait_until='domcontentloaded', timeout=20000)
-            await page.wait_for_timeout(5000)
+            try:
+                await page.goto(video_url, wait_until='domcontentloaded', timeout=25000)
+            except Exception:
+                # 超时也继续，可能API已经在响应中
+                pass
+            await page.wait_for_timeout(6000)
 
             # RENDER_DATA 兜底
             if not video_data:
